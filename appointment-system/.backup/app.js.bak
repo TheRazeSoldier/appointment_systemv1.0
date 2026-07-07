@@ -1,0 +1,1067 @@
+// ==================== API Configuration ====================
+const API_BASE = '';
+
+// ==================== State ====================
+let currentUser = null;
+let currentToken = null;
+let currentProvider = null;
+
+// ==================== Helpers ====================
+function $(id) { return document.getElementById(id); }
+
+function api(path, options = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (currentToken) headers['Authorization'] = 'Bearer ' + currentToken;
+    return fetch(API_BASE + path, { ...options, headers: { ...headers, ...options.headers } })
+        .then(r => r.json().then(data => ({ status: r.status, data })));
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+}
+
+function formatDateTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleString('zh-CN');
+}
+
+function showToast(message, type = 'info') {
+    const container = $('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span class="toast-message">${message}</span><span class="toast-close" onclick="this.parentElement.remove()">&times;</span>`;
+    container.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
+}
+
+// ==================== Navigation ====================
+function navigate(page, data) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pageEl = document.getElementById('page-' + page);
+    if (pageEl) pageEl.classList.add('active');
+    
+    // Update nav active state
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    
+    window.scrollTo(0, 0);
+    
+    switch(page) {
+        case 'home': loadHomePage(); break;
+        case 'services': loadServices(); break;
+        case 'serviceDetail': loadServiceDetail(data); break;
+        case 'providers': loadProviders(); break;
+        case 'myAppointments': loadMyAppointments(); break;
+        case 'notifications': loadNotifications(); break;
+        case 'profile': loadProfile(); break;
+        case 'providerDashboard': loadProviderDashboard(); break;
+    }
+}
+
+// ==================== Auth ====================
+function handleRegister(e) {
+    e.preventDefault();
+    const errorEl = $('registerError');
+    errorEl.textContent = '';
+    
+    const data = {
+        username: $('regUsername').value.trim(),
+        email: $('regEmail').value.trim(),
+        password: $('regPassword').value,
+        phone: $('regPhone').value.trim(),
+        role: $('regRole').value
+    };
+    
+    api('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            currentToken = resp.token;
+            currentUser = resp.user;
+            localStorage.setItem('token', resp.token);
+            localStorage.setItem('user', JSON.stringify(resp.user));
+            closeModal('registerModal');
+            updateNavState();
+            showToast('注册成功！欢迎加入', 'success');
+            if (resp.user.role === 'provider') {
+                showModal('providerRegisterModal');
+            }
+            navigate('home');
+        } else {
+            errorEl.textContent = resp.error || '注册失败';
+        }
+    });
+}
+
+function handleLogin(e) {
+    e.preventDefault();
+    const errorEl = $('loginError');
+    errorEl.textContent = '';
+    
+    const data = {
+        username: $('loginUsername').value.trim(),
+        password: $('loginPassword').value
+    };
+    
+    api('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            currentToken = resp.token;
+            currentUser = resp.user;
+            if (resp.provider) currentProvider = resp.provider;
+            localStorage.setItem('token', resp.token);
+            localStorage.setItem('user', JSON.stringify(resp.user));
+            if (resp.provider) localStorage.setItem('provider', JSON.stringify(resp.provider));
+            closeModal('loginModal');
+            updateNavState();
+            showToast('登录成功！', 'success');
+            navigate('home');
+        } else {
+            errorEl.textContent = resp.error || '登录失败';
+        }
+    });
+}
+
+function logout() {
+    currentToken = null;
+    currentUser = null;
+    currentProvider = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('provider');
+    updateNavState();
+    showToast('已退出登录', 'info');
+    navigate('home');
+}
+
+function updateNavState() {
+    const navActions = $('navActions');
+    const navUser = $('navUser');
+    const userNameDisplay = $('userNameDisplay');
+    const userAvatar = $('userAvatar');
+    const providerLink = $('providerLink');
+    
+    if (currentUser) {
+        navActions.style.display = 'none';
+        navUser.style.display = 'flex';
+        userNameDisplay.textContent = currentUser.username;
+        userAvatar.textContent = currentUser.username.charAt(0).toUpperCase();
+        if (currentUser.role === 'provider') {
+            providerLink.style.display = 'block';
+        }
+        loadUnreadCount();
+    } else {
+        navActions.style.display = 'flex';
+        navUser.style.display = 'none';
+        providerLink.style.display = 'none';
+    }
+}
+
+function initAuth() {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    const provider = localStorage.getItem('provider');
+    if (token && user) {
+        currentToken = token;
+        currentUser = JSON.parse(user);
+        if (provider) currentProvider = JSON.parse(provider);
+        updateNavState();
+    }
+}
+
+// ==================== Modal Management ====================
+function showModal(id) {
+    if (!currentUser && (id === 'appointmentModal' || id === 'reviewModal' || id === 'providerRegisterModal' || id === 'addServiceModal')) {
+        showToast('请先登录', 'warning');
+        showModal('loginModal');
+        return;
+    }
+    document.getElementById(id).classList.add('show');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+
+function switchModal(from, to) {
+    closeModal(from);
+    showModal(to);
+}
+
+function toggleDropdown(id) {
+    document.getElementById(id).classList.toggle('show');
+}
+
+function toggleMobileMenu() {
+    document.getElementById('navLinks').classList.toggle('show');
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.user-dropdown')) {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    }
+});
+
+// Close modals on outside click
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('show');
+    }
+});
+
+// ==================== Home Page ====================
+function loadHomePage() {
+    // Load stats
+    api('/api/stats').then(({ data }) => {
+        if (data.total_users !== undefined) {
+            $('statUsers').textContent = data.total_users;
+            $('statProviders').textContent = data.total_providers;
+            $('statServices').textContent = data.total_services;
+            $('statAppointments').textContent = data.total_appointments;
+        }
+    });
+    
+    // Load featured services
+    api('/api/services').then(({ data }) => {
+        const container = $('featuredServices');
+        if (data.services && data.services.length > 0) {
+            container.innerHTML = data.services.slice(0, 6).map((s, i) => `
+                <div class="service-card reveal reveal-delay-${(i % 4) + 1}" onclick="navigate('serviceDetail', ${s.id})">
+                    <div class="service-card-image ${getCategoryClass(s.category)}">
+                        <span class="icon-text">${getCategoryIcon(s.category)}</span>
+                    </div>
+                    <div class="service-card-body">
+                        <h3>${escHtml(s.name)}</h3>
+                        <p class="service-provider">${escHtml(s.provider_name || '')}</p>
+                        <p class="service-desc">${escHtml(s.description).substring(0, 60)}</p>
+                        <div class="service-card-meta">
+                            <span class="service-price">${s.price > 0 ? '¥' + s.price : '免费'}</span>
+                            <span class="service-duration">&#9200; ${s.duration}分钟</span>
+                            <span class="service-rating">&#9733; ${(s.avg_rating || 0).toFixed(1)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            initScrollReveal();
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128203;</div><h3>暂无服务</h3><p>还没有服务商发布服务，快来成为第一个吧！</p></div>';
+        }
+    });
+    
+    // Load featured providers
+    api('/api/providers').then(({ data }) => {
+        const container = $('featuredProviders');
+        if (data.providers && data.providers.length > 0) {
+            container.innerHTML = data.providers.slice(0, 4).map((p, i) => `
+                <div class="provider-card reveal reveal-delay-${(i % 4) + 1}" onclick="navigate('services');document.getElementById('serviceCategoryFilter').value='${p.category}';loadServices();">
+                    <div class="provider-card-header">
+                        <div class="provider-avatar">${p.name.charAt(0)}</div>
+                        <div class="provider-info">
+                            <h3>${escHtml(p.name)}</h3>
+                            <span class="category-tag">${escHtml(p.category)}</span>
+                        </div>
+                    </div>
+                    <div class="provider-card-body">${escHtml(p.description).substring(0, 80) || '暂无简介'}</div>
+                </div>
+            `).join('');
+            initScrollReveal();
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128100;</div><h3>暂无服务商</h3><p>还没有服务商入驻，快来加入吧！</p></div>';
+        }
+    });
+}
+
+function searchFromHero() {
+    const keyword = $('heroSearch').value.trim();
+    const category = $('heroCategory').value;
+    $('serviceSearch').value = keyword;
+    $('serviceCategoryFilter').value = category;
+    navigate('services');
+    loadServices();
+}
+
+function searchByCategory(category) {
+    $('serviceCategoryFilter').value = category;
+    $('serviceSearch').value = '';
+    navigate('services');
+    loadServices();
+}
+
+// ==================== Services ====================
+function loadServices() {
+    const keyword = $('serviceSearch')?.value || '';
+    const category = $('serviceCategoryFilter')?.value || '';
+    const params = new URLSearchParams();
+    if (keyword) params.append('keyword', keyword);
+    if (category) params.append('category', category);
+    
+    const container = document.getElementById('allServices');
+    if (!container) return;
+    container.innerHTML = '<div class="loading"><div class="loading-spinner"></div>加载中</div>';
+    
+    api('/api/services?' + params.toString()).then(({ data }) => {
+        if (data.services && data.services.length > 0) {
+            container.innerHTML = data.services.map((s, i) => `
+                <div class="service-card reveal reveal-delay-${(i % 4) + 1}" onclick="navigate('serviceDetail', ${s.id})">
+                    <div class="service-card-image ${getCategoryClass(s.category)}">
+                        <span class="icon-text">${getCategoryIcon(s.category)}</span>
+                    </div>
+                    <div class="service-card-body">
+                        <h3>${escHtml(s.name)}</h3>
+                        <p class="service-provider">${escHtml(s.provider_name || '')}</p>
+                        <p class="service-desc">${escHtml(s.description).substring(0, 80)}</p>
+                        <div class="service-card-meta">
+                            <span class="service-price">${s.price > 0 ? '¥' + s.price : '免费'}</span>
+                            <span class="service-duration">&#9200; ${s.duration}分钟</span>
+                            <span class="service-rating">&#9733; ${(s.avg_rating || 0).toFixed(1)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            initScrollReveal();
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128269;</div><h3>没有找到服务</h3><p>试试其他搜索条件</p></div>';
+        }
+    });
+}
+
+function loadServiceDetail(serviceId) {
+    const container = $('serviceDetailContent');
+    container.innerHTML = '<div class="loading">加载中</div>';
+    
+    api('/api/services/' + serviceId).then(({ data }) => {
+        if (data.service) {
+            const s = data.service;
+            const p = data.provider;
+            container.innerHTML = `
+                <div class="service-detail">
+                    <a class="back-btn" onclick="navigate('services')">&#8592; 返回服务列表</a>
+                    <div class="service-detail-header">
+                        <h1>${escHtml(s.name)}</h1>
+                        <p style="color:var(--text-secondary);">${escHtml(s.description)}</p>
+                        <div class="service-detail-info">
+                            <div><span class="label">价格</span><span class="value" style="color:var(--primary);">${s.price > 0 ? '¥' + s.price : '免费'}</span></div>
+                            <div><span class="label">时长</span><span class="value">${s.duration} 分钟</span></div>
+                            <div><span class="label">分类</span><span class="value">${escHtml(s.category)}</span></div>
+                            <div><span class="label">评分</span><span class="value" style="color:var(--accent);">&#9733; ${(data.avg_rating || 0).toFixed(1)}</span></div>
+                        </div>
+                        <button class="btn btn-primary btn-lg" style="margin-top:20px;" onclick="openAppointmentModal(${s.id}, '${escHtml(s.name)}')">立即预约</button>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h2>服务商信息</h2>
+                        <div style="display:flex;align-items:center;gap:16px;cursor:pointer;" onclick="navigate('services');document.getElementById('serviceCategoryFilter').value='${escHtml(p.category)}';loadServices();">
+                            <div class="provider-avatar">${p.name.charAt(0)}</div>
+                            <div>
+                                <h3 style="margin-bottom:4px;">${escHtml(p.name)}</h3>
+                                <span class="category-tag">${escHtml(p.category)}</span>
+                                <p style="margin-top:4px;color:var(--text-secondary);font-size:0.9rem;">${escHtml(p.description)}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h2>用户评价 (${data.reviews ? data.reviews.length : 0})</h2>
+                        ${data.reviews && data.reviews.length > 0 ? data.reviews.map(r => `
+                            <div class="review-card">
+                                <div class="review-header">
+                                    <span class="review-user">${escHtml(r.username)}</span>
+                                    <span class="review-stars">${'&#9733;'.repeat(r.rating)}${'&#9734;'.repeat(5-r.rating)}</span>
+                                </div>
+                                <div class="review-comment">${escHtml(r.comment) || '用户未留下评论'}</div>
+                                <div class="review-date">${formatDateTime(r.created_at)}</div>
+                            </div>
+                        `).join('') : '<p style="color:var(--text-secondary);">暂无评价</p>'}
+                    </div>
+                </div>
+            `;
+            document.getElementById('page-serviceDetail').classList.add('active');
+        }
+    });
+}
+
+// ==================== Providers ====================
+function loadProviders() {
+    const category = $('providerCategoryFilter')?.value || '';
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    
+    const container = document.getElementById('allProviders');
+    if (!container) return;
+    container.innerHTML = '<div class="loading"><div class="loading-spinner"></div>加载中</div>';
+    
+    api('/api/providers?' + params.toString()).then(({ data }) => {
+        if (data.providers && data.providers.length > 0) {
+            container.innerHTML = data.providers.map((p, i) => `
+                <div class="provider-card reveal reveal-delay-${(i % 4) + 1}" onclick="navigate('services');document.getElementById('serviceCategoryFilter').value='${p.category}';loadServices();">
+                    <div class="provider-card-header">
+                        <div class="provider-avatar">${p.name.charAt(0)}</div>
+                        <div class="provider-info">
+                            <h3>${escHtml(p.name)}</h3>
+                            <span class="category-tag">${escHtml(p.category)}</span>
+                        </div>
+                    </div>
+                    <div class="provider-card-body">${escHtml(p.description) || '暂无简介'}</div>
+                    <p style="margin-top:8px;color:var(--text-light);font-size:0.85rem;">${escHtml(p.address)}</p>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128100;</div><h3>暂无服务商</h3></div>';
+        }
+    });
+}
+
+// ==================== Appointments ====================
+function openAppointmentModal(serviceId, serviceName) {
+    if (!currentUser) {
+        showToast('请先登录', 'warning');
+        showModal('loginModal');
+        return;
+    }
+    $('apptServiceId').value = serviceId;
+    $('apptServiceName').value = serviceName;
+    $('apptDate').value = '';
+    $('apptDate').min = new Date().toISOString().split('T')[0];
+    $('apptTime').value = '';
+    $('apptNotes').value = '';
+    $('appointmentError').textContent = '';
+    
+    // Generate time slots
+    const timeSelect = $('apptTime');
+    timeSelect.innerHTML = '<option value="">请选择时间</option>';
+    for (let h = 8; h <= 20; h++) {
+        for (let m = 0; m < 60; m += 30) {
+            const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            timeSelect.innerHTML += `<option value="${time}">${time}</option>`;
+        }
+    }
+    
+    showModal('appointmentModal');
+}
+
+function handleBookAppointment(e) {
+    e.preventDefault();
+    const errorEl = $('appointmentError');
+    errorEl.textContent = '';
+    
+    const data = {
+        service_id: parseInt($('apptServiceId').value),
+        appointment_date: $('apptDate').value,
+        appointment_time: $('apptTime').value,
+        notes: $('apptNotes').value
+    };
+    
+    api('/api/appointments', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            closeModal('appointmentModal');
+            showToast('预约成功！等待服务商确认', 'success');
+        } else {
+            errorEl.textContent = resp.error || '预约失败';
+        }
+    });
+}
+
+function loadMyAppointments() {
+    if (!currentUser) {
+        showToast('请先登录', 'warning');
+        showModal('loginModal');
+        return;
+    }
+    
+    const container = $('myAppointmentsList');
+    container.innerHTML = '<div class="loading">加载中</div>';
+    
+    api('/api/appointments').then(({ data }) => {
+        if (data.appointments && data.appointments.length > 0) {
+            container.innerHTML = data.appointments.map(a => `
+                <div class="appointment-card">
+                    <div class="appointment-header">
+                        <span class="appointment-title">${escHtml(a.service_name)}</span>
+                        <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                    </div>
+                    <div class="appointment-info">
+                        <span>&#128197; ${a.appointment_date} ${a.appointment_time}</span>
+                        <span>&#128100; ${escHtml(a.provider_name)}</span>
+                        ${currentUser.role === 'provider' ? `<span>用户: ${escHtml(a.user_name)}</span>` : ''}
+                        <span>&#128176; ¥${a.service_price}</span>
+                    </div>
+                    ${a.notes ? `<p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:8px;">备注: ${escHtml(a.notes)}</p>` : ''}
+                    <div class="appointment-actions">
+                        ${a.status === 'pending' && currentUser.role === 'provider' ? `<button class="btn btn-primary btn-sm" onclick="confirmAppointment(${a.id})">确认预约</button>` : ''}
+                        ${a.status === 'confirmed' && currentUser.role === 'provider' ? `<button class="btn btn-secondary btn-sm" onclick="completeAppointment(${a.id})">完成服务</button>` : ''}
+                        ${(a.status === 'pending' || a.status === 'confirmed') ? `<button class="btn btn-danger btn-sm" onclick="cancelAppointment(${a.id})">取消预约</button>` : ''}
+                        ${a.status === 'completed' && currentUser.role === 'user' ? `<button class="btn btn-outline btn-sm" onclick="openReviewModal(${a.id})">评价</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128197;</div><h3>暂无预约</h3><p>去浏览服务并预约吧！</p></div>';
+        }
+    });
+}
+
+function cancelAppointment(id) {
+    if (!confirm('确定要取消这个预约吗？')) return;
+    api('/api/appointments/' + id + '/cancel', { method: 'POST' }).then(({ status, data }) => {
+        if (status === 200) {
+            showToast('预约已取消', 'success');
+            loadMyAppointments();
+        } else {
+            showToast(data.error || '取消失败', 'error');
+        }
+    });
+}
+
+function confirmAppointment(id) {
+    api('/api/appointments/' + id + '/confirm', { method: 'POST' }).then(({ status, data }) => {
+        if (status === 200) {
+            showToast('预约已确认', 'success');
+            loadMyAppointments();
+        } else {
+            showToast(data.error || '确认失败', 'error');
+        }
+    });
+}
+
+function completeAppointment(id) {
+    api('/api/appointments/' + id + '/complete', { method: 'POST' }).then(({ status, data }) => {
+        if (status === 200) {
+            showToast('服务已完成', 'success');
+            loadMyAppointments();
+        } else {
+            showToast(data.error || '操作失败', 'error');
+        }
+    });
+}
+
+// ==================== Reviews ====================
+let currentRating = 5;
+
+function setRating(rating) {
+    currentRating = rating;
+    $('reviewRating').value = rating;
+    const stars = document.querySelectorAll('#starRating span');
+    stars.forEach((s, i) => {
+        s.innerHTML = i < rating ? '&#9733;' : '&#9734;';
+        s.classList.toggle('active', i < rating);
+    });
+}
+
+function openReviewModal(apptId) {
+    $('reviewApptId').value = apptId;
+    $('reviewComment').value = '';
+    setRating(5);
+    $('reviewError').textContent = '';
+    showModal('reviewModal');
+}
+
+function handleSubmitReview(e) {
+    e.preventDefault();
+    const errorEl = $('reviewError');
+    errorEl.textContent = '';
+    
+    const data = {
+        appointment_id: parseInt($('reviewApptId').value),
+        rating: currentRating,
+        comment: $('reviewComment').value
+    };
+    
+    api('/api/reviews', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            closeModal('reviewModal');
+            showToast('评价提交成功！', 'success');
+            loadMyAppointments();
+        } else {
+            errorEl.textContent = resp.error || '评价失败';
+        }
+    });
+}
+
+// ==================== Notifications ====================
+function loadNotifications() {
+    if (!currentUser) {
+        showToast('请先登录', 'warning');
+        showModal('loginModal');
+        return;
+    }
+    
+    const container = $('notificationsList');
+    container.innerHTML = '<div class="loading">加载中</div>';
+    
+    api('/api/notifications').then(({ data }) => {
+        if (data.notifications && data.notifications.length > 0) {
+            container.innerHTML = data.notifications.map(n => `
+                <div class="notification-card ${n.is_read ? '' : 'unread'}" onclick="markNotifRead(${n.id})">
+                    <div class="notification-title">${escHtml(n.title)}</div>
+                    <div class="notification-message">${escHtml(n.message)}</div>
+                    <div class="notification-time">${formatDateTime(n.created_at)}</div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#128276;</div><h3>暂无消息</h3></div>';
+        }
+    });
+}
+
+function markNotifRead(id) {
+    api('/api/notifications/' + id + '/read', { method: 'PUT' }).then(() => {
+        loadUnreadCount();
+    });
+}
+
+function loadUnreadCount() {
+    if (!currentUser) return;
+    api('/api/notifications').then(({ data }) => {
+        const badge = $('notifBadge');
+        const badgeMenu = $('notifBadgeMenu');
+        if (data.unread_count > 0) {
+            badge.style.display = 'inline-flex';
+            badge.textContent = data.unread_count;
+            badgeMenu.textContent = data.unread_count;
+        } else {
+            badge.style.display = 'none';
+            badgeMenu.textContent = '0';
+        }
+    });
+}
+
+// ==================== Profile ====================
+function loadProfile() {
+    if (!currentUser) {
+        showToast('请先登录', 'warning');
+        showModal('loginModal');
+        return;
+    }
+    
+    const container = $('profileContent');
+    api('/api/auth/profile').then(({ data }) => {
+        if (data.user) {
+            const u = data.user;
+            container.innerHTML = `
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar-lg">${u.username.charAt(0).toUpperCase()}</div>
+                        <div>
+                            <div class="profile-name">${escHtml(u.username)}</div>
+                            <span class="profile-role">${u.role === 'provider' ? '服务商' : '普通用户'}</span>
+                        </div>
+                    </div>
+                    <form onsubmit="updateProfile(event)">
+                        <div class="form-group">
+                            <label>用户名</label>
+                            <input type="text" id="profileUsername" value="${escHtml(u.username)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>邮箱</label>
+                            <input type="email" id="profileEmail" value="${escHtml(u.email)}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>手机号</label>
+                            <input type="tel" id="profilePhone" value="${escHtml(u.phone || '')}">
+                        </div>
+                        <div class="form-group">
+                            <label>注册时间</label>
+                            <input type="text" value="${formatDateTime(u.created_at)}" readonly>
+                        </div>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </form>
+                </div>
+                ${u.role !== 'provider' ? `
+                <div class="profile-card" style="text-align:center;">
+                    <h3 style="margin-bottom:16px;">成为服务商</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;">发布您的服务，让更多人预约！</p>
+                    <button class="btn btn-primary" onclick="showModal('providerRegisterModal')">立即成为服务商</button>
+                </div>` : ''}
+            `;
+        }
+    });
+}
+
+function updateProfile(e) {
+    e.preventDefault();
+    const data = {
+        username: $('profileUsername').value.trim(),
+        email: $('profileEmail').value.trim(),
+        phone: $('profilePhone').value.trim()
+    };
+    
+    api('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            currentUser = resp.user;
+            localStorage.setItem('user', JSON.stringify(resp.user));
+            updateNavState();
+            showToast('资料更新成功！', 'success');
+        } else {
+            showToast(resp.error || '更新失败', 'error');
+        }
+    });
+}
+
+// ==================== Provider Registration ====================
+function handleProviderRegister(e) {
+    e.preventDefault();
+    const errorEl = $('providerRegisterError');
+    errorEl.textContent = '';
+    
+    const data = {
+        name: $('provName').value.trim(),
+        category: $('provCategory').value,
+        description: $('provDescription').value.trim(),
+        address: $('provAddress').value.trim(),
+        phone: $('provPhone').value.trim()
+    };
+    
+    api('/api/providers', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            currentProvider = resp.provider;
+            currentUser.role = 'provider';
+            localStorage.setItem('provider', JSON.stringify(resp.provider));
+            localStorage.setItem('user', JSON.stringify(currentUser));
+            closeModal('providerRegisterModal');
+            updateNavState();
+            showToast('服务商注册成功！', 'success');
+            navigate('providerDashboard');
+        } else {
+            errorEl.textContent = resp.error || '注册失败';
+        }
+    });
+}
+
+// ==================== Provider Dashboard ====================
+function loadProviderDashboard() {
+    if (!currentUser || currentUser.role !== 'provider') {
+        showToast('请先注册为服务商', 'warning');
+        return;
+    }
+    
+    const container = $('providerDashboardContent');
+    api('/api/auth/profile').then(({ data }) => {
+        if (data.provider) {
+            currentProvider = data.provider;
+            const p = data.provider;
+            
+            api('/api/appointments').then(({ data: apptData }) => {
+                const appointments = apptData.appointments || [];
+                const pending = appointments.filter(a => a.status === 'pending').length;
+                const confirmed = appointments.filter(a => a.status === 'confirmed').length;
+                const completed = appointments.filter(a => a.status === 'completed').length;
+                
+                api('/api/services').then(({ data: svcData }) => {
+                    const myServices = (svcData.services || []).filter(s => s.provider_id === p.id);
+                    
+                    container.innerHTML = `
+                        <div class="provider-dashboard">
+                            <div class="dashboard-stats">
+                                <div class="dashboard-stat">
+                                    <div class="stat-value">${myServices.length}</div>
+                                    <div class="stat-label">我的服务</div>
+                                </div>
+                                <div class="dashboard-stat">
+                                    <div class="stat-value">${pending}</div>
+                                    <div class="stat-label">待确认</div>
+                                </div>
+                                <div class="dashboard-stat">
+                                    <div class="stat-value">${confirmed}</div>
+                                    <div class="stat-label">已确认</div>
+                                </div>
+                                <div class="dashboard-stat">
+                                    <div class="stat-value">${completed}</div>
+                                    <div class="stat-label">已完成</div>
+                                </div>
+                            </div>
+                            
+                            <div class="dashboard-tabs">
+                                <button class="dashboard-tab active" onclick="switchDashboardTab('services', this)">我的服务</button>
+                                <button class="dashboard-tab" onclick="switchDashboardTab('appointments', this)">预约管理</button>
+                                <button class="dashboard-tab" onclick="switchDashboardTab('info', this)">服务商信息</button>
+                            </div>
+                            
+                            <div id="dashboardTabContent">
+                                <div id="tab-services">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                        <h3>我的服务</h3>
+                                        <button class="btn btn-primary btn-sm" onclick="openAddServiceModal()">发布新服务</button>
+                                    </div>
+                                    <div class="services-grid">
+                                        ${myServices.length > 0 ? myServices.map((s, i) => `
+                                            <div class="service-card reveal reveal-delay-${(i % 4) + 1}">
+                                                <div class="service-card-image ${getCategoryClass(s.category)}">
+                                                    <span class="icon-text">${getCategoryIcon(s.category)}</span>
+                                                </div>
+                                                <div class="service-card-body">
+                                                    <h3>${escHtml(s.name)}</h3>
+                                                    <p class="service-desc">${escHtml(s.description).substring(0, 60)}</p>
+                                                    <div class="service-card-meta">
+                                                        <span class="service-price">${s.price > 0 ? '¥' + s.price : '免费'}</span>
+                                                        <span class="service-duration">&#9200; ${s.duration}分钟</span>
+                                                    </div>
+                                                    <div style="display:flex;gap:8px;margin-top:12px;">
+                                                        <button class="btn btn-outline btn-sm" onclick="editService(${s.id}, '${escHtml(s.name)}', '${escHtml(s.category)}', '${escHtml(s.description)}', ${s.price}, ${s.duration})">编辑</button>
+                                                        <button class="btn btn-danger btn-sm" onclick="deleteService(${s.id})">删除</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('') : '<div class="empty-state"><p>还没有发布服务</p></div>'}
+                                    </div>
+                                </div>
+                                <div id="tab-appointments" style="display:none;">
+                                    ${appointments.length > 0 ? appointments.map(a => `
+                                        <div class="appointment-card">
+                                            <div class="appointment-header">
+                                                <span class="appointment-title">${escHtml(a.service_name)} - ${escHtml(a.user_name)}</span>
+                                                <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                                            </div>
+                                            <div class="appointment-info">
+                                                <span>&#128197; ${a.appointment_date} ${a.appointment_time}</span>
+                                                <span>&#128176; ¥${a.service_price}</span>
+                                            </div>
+                                            ${a.notes ? `<p style="color:var(--text-secondary);font-size:0.9rem;">备注: ${escHtml(a.notes)}</p>` : ''}
+                                            <div class="appointment-actions">
+                                                ${a.status === 'pending' ? `<button class="btn btn-primary btn-sm" onclick="confirmAppointment(${a.id})">确认</button>` : ''}
+                                                ${a.status === 'confirmed' ? `<button class="btn btn-secondary btn-sm" onclick="completeAppointment(${a.id})">完成</button>` : ''}
+                                                ${a.status !== 'cancelled' && a.status !== 'completed' ? `<button class="btn btn-danger btn-sm" onclick="cancelAppointment(${a.id})">取消</button>` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('') : '<div class="empty-state"><p>暂无预约</p></div>'}
+                                </div>
+                                <div id="tab-info" style="display:none;">
+                                    <div class="profile-card">
+                                        <form onsubmit="updateProviderInfo(event)">
+                                            <div class="form-group">
+                                                <label>服务商名称</label>
+                                                <input type="text" id="dashProvName" value="${escHtml(p.name)}" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>分类</label>
+                                                <select id="dashProvCategory">
+                                                    <option value="医疗" ${p.category==='医疗'?'selected':''}>医疗健康</option>
+                                                    <option value="美容" ${p.category==='美容'?'selected':''}>美容美发</option>
+                                                    <option value="健身" ${p.category==='健身'?'selected':''}>健身运动</option>
+                                                    <option value="教育" ${p.category==='教育'?'selected':''}>教育培训</option>
+                                                    <option value="家政" ${p.category==='家政'?'selected':''}>家政服务</option>
+                                                    <option value="法律" ${p.category==='法律'?'selected':''}>法律咨询</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>简介</label>
+                                                <textarea id="dashProvDesc" rows="3">${escHtml(p.description)}</textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>地址</label>
+                                                <input type="text" id="dashProvAddr" value="${escHtml(p.address)}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>电话</label>
+                                                <input type="tel" id="dashProvPhone" value="${escHtml(p.phone)}">
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">保存</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+        } else {
+            container.innerHTML = `
+                <div class="empty-state" style="padding:80px 24px;">
+                    <div class="empty-icon">&#127968;</div>
+                    <h3>您还没有注册为服务商</h3>
+                    <p style="margin-bottom:20px;">注册成为服务商，发布您的服务</p>
+                    <button class="btn btn-primary" onclick="showModal('providerRegisterModal')">成为服务商</button>
+                </div>
+            `;
+        }
+    });
+}
+
+function switchDashboardTab(tab, btn) {
+    document.querySelectorAll('.dashboard-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-services').style.display = tab === 'services' ? 'block' : 'none';
+    document.getElementById('tab-appointments').style.display = tab === 'appointments' ? 'block' : 'none';
+    document.getElementById('tab-info').style.display = tab === 'info' ? 'block' : 'none';
+}
+
+function updateProviderInfo(e) {
+    e.preventDefault();
+    const data = {
+        name: $('dashProvName').value.trim(),
+        category: $('dashProvCategory').value,
+        description: $('dashProvDesc').value.trim(),
+        address: $('dashProvAddr').value.trim(),
+        phone: $('dashProvPhone').value.trim()
+    };
+    
+    api('/api/providers', { method: 'PUT', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            currentProvider = resp.provider;
+            localStorage.setItem('provider', JSON.stringify(resp.provider));
+            showToast('信息更新成功！', 'success');
+        } else {
+            showToast(resp.error || '更新失败', 'error');
+        }
+    });
+}
+
+// ==================== Service CRUD (Provider) ====================
+function openAddServiceModal(editData) {
+    if (editData) {
+        $('addServiceTitle').textContent = '编辑服务';
+        $('editServiceId').value = editData.id;
+        $('svcName').value = editData.name;
+        $('svcCategory').value = editData.category;
+        $('svcDescription').value = editData.description;
+        $('svcPrice').value = editData.price;
+        $('svcDuration').value = editData.duration;
+    } else {
+        $('addServiceTitle').textContent = '发布服务';
+        $('editServiceId').value = '';
+        $('svcName').value = '';
+        $('svcCategory').value = '';
+        $('svcDescription').value = '';
+        $('svcPrice').value = '0';
+        $('svcDuration').value = '60';
+    }
+    $('addServiceError').textContent = '';
+    showModal('addServiceModal');
+}
+
+function editService(id, name, category, description, price, duration) {
+    openAddServiceModal({ id, name, category, description, price, duration });
+}
+
+function handleAddService(e) {
+    e.preventDefault();
+    const errorEl = $('addServiceError');
+    errorEl.textContent = '';
+    
+    const data = {
+        name: $('svcName').value.trim(),
+        category: $('svcCategory').value,
+        description: $('svcDescription').value.trim(),
+        price: parseFloat($('svcPrice').value) || 0,
+        duration: parseInt($('svcDuration').value) || 60
+    };
+    
+    const editId = $('editServiceId').value;
+    const url = editId ? '/api/services/' + editId : '/api/services';
+    const method = editId ? 'PUT' : 'POST';
+    
+    api(url, { method, body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+        if (status === 200) {
+            closeModal('addServiceModal');
+            showToast(editId ? '服务更新成功！' : '服务发布成功！', 'success');
+            loadProviderDashboard();
+        } else {
+            errorEl.textContent = resp.error || '操作失败';
+        }
+    });
+}
+
+function deleteService(id) {
+    if (!confirm('确定要删除这个服务吗？')) return;
+    api('/api/services/' + id, { method: 'DELETE' }).then(({ status, data }) => {
+        if (status === 200) {
+            showToast('服务已删除', 'success');
+            loadProviderDashboard();
+        } else {
+            showToast(data.error || '删除失败', 'error');
+        }
+    });
+}
+
+// ==================== Utilities ====================
+function getCategoryIcon(category) {
+    const icons = {
+        '医疗': '&#9764;', '美容': '&#9824;', '健身': '&#9822;',
+        '教育': '&#9827;', '家政': '&#9829;', '法律': '&#9830;'
+    };
+    return icons[category] || '&#9830;';
+}
+
+function getCategoryClass(category) {
+    const map = {
+        '医疗': 'medical', '美容': 'beauty', '健身': 'fitness',
+        '教育': 'education', '家政': 'household', '法律': 'legal'
+    };
+    return map[category] || 'medical';
+}
+
+function getStatusText(status) {
+    const map = {
+        'pending': '待确认', 'confirmed': '已确认',
+        'completed': '已完成', 'cancelled': '已取消'
+    };
+    return map[status] || status;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ==================== Scroll Reveal Animation ====================
+function initScrollReveal() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+}
+
+// Apply reveal classes to elements after they are rendered
+function applyReveal(container) {
+    if (!container) return;
+    const cards = container.querySelectorAll('.service-card, .provider-card, .category-card, .appointment-card, .notification-card, .review-card, .dashboard-stat');
+    cards.forEach((card, i) => {
+        card.classList.add('reveal', `reveal-delay-${(i % 4) + 1}`);
+    });
+    initScrollReveal();
+}
+
+// ==================== Particle System ====================
+function initParticles() {
+    const container = document.getElementById('particlesContainer');
+    if (!container) return;
+    
+    const colors = ['#6366F1', '#06B6D4', '#F59E0B', '#10B981', '#EC4899', '#8B5CF6'];
+    const particleCount = 30;
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        
+        const size = Math.random() * 4 + 2;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const left = Math.random() * 100;
+        const duration = Math.random() * 10 + 15;
+        const delay = Math.random() * 15;
+        
+        particle.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            background: ${color};
+            left: ${left}%;
+            animation-duration: ${duration}s;
+            animation-delay: ${delay}s;
+            box-shadow: 0 0 ${size * 2}px ${color};
+        `;
+        
+        container.appendChild(particle);
+    }
+}
+
+// ==================== Init ====================
+document.addEventListener('DOMContentLoaded', () => {
+    initAuth();
+    initParticles();
+    loadHomePage();
+});

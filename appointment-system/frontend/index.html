@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悦预约 - 智能在线预约平台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo" onclick="navigateToDefaultPage()">悦预约</a>
+            <div class="nav-links" id="navLinks">
+                <a href="#hero" class="nav-link">首页</a>
+                <a href="#how-it-works" class="nav-link">流程</a>
+                <a href="#services-section" class="nav-link">服务</a>
+                <a href="#join-us" class="nav-link">加盟</a>
+                <a href="#contact" class="nav-link">联系</a>
+            </div>
+            <div class="nav-actions" id="navActions">
+                <button class="btn btn-ghost" onclick="showModal('loginModal')">登录</button>
+                <button class="btn btn-primary" onclick="showModal('registerModal')">免费注册</button>
+            </div>
+            <div class="nav-user" id="navUser" style="display:none;">
+                <div class="user-dropdown">
+                    <button class="user-btn" onclick="toggleDropdown('userDropdown')">
+                        <span class="user-avatar" id="userAvatar"></span>
+                        <span id="userNameDisplay"></span>
+                        <span class="badge" id="notifBadge" style="display:none;">0</span>
+                    </button>
+                    <div class="dropdown-menu" id="userDropdown">
+                        <a href="#" onclick="navigate('myAppointments')">我的预约</a>
+                        <a href="#" onclick="navigate('profile')">个人中心</a>
+                        <a href="#" id="providerLink" onclick="navigate('providerDashboard')" style="display:none;">服务商管理</a>
+                        <a href="#" onclick="navigate('notifications')">消息通知 <span class="badge" id="notifBadgeMenu">0</span></a>
+                        <hr>
+                        <a href="#" onclick="logout()">退出登录</a>
+                    </div>
+                </div>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">&#9776;</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="mainContent">
+        <!-- ==================== HOME PAGE ==================== -->
+        <section id="page-home" class="page active">
+            <!-- Hero Section -->
+            <section class="hero" id="hero">
+                <div class="hero-bg">
+                    <div class="hero-orb orb-1 parallax-slow" data-parallax="0.15"></div>
+                    <div class="hero-orb orb-2 parallax-slow" data-parallax="-0.1"></div>
+                    <div class="hero-orb orb-3 parallax-slow" data-parallax="0.08"></div>
+                    <div class="hero-grid"></div>
+                </div>
+                <div class="hero-content">
+                    <span class="hero-badge reveal">智能预约 · 高效管理</span>
+                    <h1 class="hero-title reveal">让每一次预约<br>都成为美好体验</h1>
+                    <p class="hero-subtitle reveal">覆盖医疗、美容、健身、教育等全行业场景，<br>为您的业务提供一站式智能预约解决方案</p>
+                    <div class="hero-cta reveal">
+                        <button class="btn btn-primary btn-hero" onclick="showModal('registerModal')">立即免费使用</button>
+                        <button class="btn btn-outline btn-hero" onclick="scrollToSection('how-it-works')">了解更多</button>
+                    </div>
+                    <div class="hero-stats reveal">
+                        <div class="stat-item">
+                            <span class="stat-number"><span class="counter" data-target="5000">0</span>+</span>
+                            <span>服务商家入驻</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number"><span class="counter" data-target="120000">0</span>+</span>
+                            <span>预约成功完成</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number"><span class="counter" data-target="99.9">0</span>%</span>
+                            <span>系统稳定运行</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-scroll" onclick="scrollToSection('how-it-works')">
+                    <span>向下滚动</span>
+                    <div class="scroll-mouse">
+                        <div class="scroll-dot"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- How It Works -->
+            <section class="section section-alt" id="how-it-works">
+                <div class="section-container">
+                    <span class="section-badge reveal">三步轻松预约</span>
+                    <h2 class="section-title reveal">简单三步，即刻开始</h2>
+                    <div class="steps-grid">
+                        <div class="step-card reveal">
+                            <div class="step-number">01</div>
+                            <div class="step-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </div>
+                            <h3>注册账号</h3>
+                            <p>30秒快速注册，选择普通用户或服务商身份，即刻开启预约之旅</p>
+                        </div>
+                        <div class="step-card reveal">
+                            <div class="step-number">02</div>
+                            <div class="step-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            </div>
+                            <h3>选择服务</h3>
+                            <p>浏览海量优质服务，按分类筛选，查看评价详情，找到最适合您的选择</p>
+                        </div>
+                        <div class="step-card reveal">
+                            <div class="step-number">03</div>
+                            <div class="step-icon">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <h3>确认预约</h3>
+                            <p>选择时间、提交预约，服务商确认后即可享受服务，全程消息通知</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider-static"></div>
+            </section>
+
+            <!-- Why Choose Us -->
+            <section class="section" id="why-us">
+                <div class="section-container">
+                    <span class="section-badge reveal">为什么选择我们</span>
+                    <h2 class="section-title reveal">为服务商和用户打造极致体验</h2>
+                    <div class="features-grid">
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-orange">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            </div>
+                            <h3>安全可靠</h3>
+                            <p>银行级数据加密，用户隐私得到充分保护</p>
+                        </div>
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-blue">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </div>
+                            <h3>实时响应</h3>
+                            <p>毫秒级响应速度，预约确认即时送达</p>
+                        </div>
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-green">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            </div>
+                            <h3>多端适配</h3>
+                            <p>PC、平板、手机全端完美适配</p>
+                        </div>
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-orange">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            </div>
+                            <h3>智能提醒</h3>
+                            <p>预约到期自动提醒，不再错过任何服务</p>
+                        </div>
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-blue">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            </div>
+                            <h3>数据报表</h3>
+                            <p>服务商专属数据看板，经营状况一目了然</p>
+                        </div>
+                        <div class="feature-item reveal">
+                            <div class="feature-icon accent-green">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            </div>
+                            <h3>评价体系</h3>
+                            <p>真实用户评价，帮助更多人发现优质服务</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Services Preview -->
+            <section class="section section-alt" id="services-section">
+                <div class="section-container">
+                    <span class="section-badge reveal">热门服务</span>
+                    <h2 class="section-title reveal">覆盖全行业，满足各类需求</h2>
+                    <div class="services-grid" id="featuredServices">
+                        <div class="loading">加载中</div>
+                    </div>
+                    <div class="section-more reveal">
+                        <button class="btn btn-outline" onclick="navigate('services')">浏览全部服务 →</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Join Us -->
+            <section class="section section-dark" id="join-us">
+                <div class="section-container">
+                    <span class="section-badge section-badge-light reveal">诚邀加盟</span>
+                    <h2 class="section-title section-title-light reveal">加入悦预约，开启您的线上业务</h2>
+                    <p class="section-subtitle reveal">无论您是个人工作室还是连锁机构，悦预约帮助您高效管理预约，提升客户满意度</p>
+                    <div class="join-grid">
+                        <div class="join-card reveal-scale">
+                            <div class="join-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </div>
+                            <h3>个人服务商</h3>
+                            <p>适合自由职业者、个人工作室</p>
+                            <ul>
+                                <li>免费注册，零门槛入驻</li>
+                                <li>自主发布和管理服务</li>
+                                <li>实时接收预约通知</li>
+                                <li>客户评价管理</li>
+                            </ul>
+                        </div>
+                        <div class="join-card reveal-scale">
+                            <div class="join-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            </div>
+                            <h3>企业机构</h3>
+                            <p>适合连锁门店、医疗机构</p>
+                            <ul>
+                                <li>多门店统一管理</li>
+                                <li>员工排班与权限</li>
+                                <li>经营数据报表</li>
+                                <li>API接口对接</li>
+                            </ul>
+                        </div>
+                        <div class="join-card reveal-scale">
+                            <div class="join-icon">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </div>
+                            <h3>平台合作</h3>
+                            <p>适合流量平台、行业联盟</p>
+                            <ul>
+                                <li>定制化接入方案</li>
+                                <li>白标贴牌服务</li>
+                                <li>专属客户经理</li>
+                                <li>联合品牌推广</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="join-cta reveal">
+                        <button class="btn btn-primary btn-hero" onclick="showModal('registerModal')">立即入驻</button>
+                        <span>或</span>
+                        <button class="btn btn-ghost-light" onclick="scrollToSection('contact')">联系我们咨询 →</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contact Us -->
+            <section class="section" id="contact">
+                <div class="section-container contact-wrapper">
+                    <div class="contact-info reveal-left">
+                        <span class="section-badge">联系我们</span>
+                        <h2 class="section-title" style="text-align:left;">让我们了解<br>您的需求</h2>
+                        <p class="contact-desc">无论您有任何问题或合作意向，我们的团队随时为您服务</p>
+                        <div class="contact-details">
+                            <div class="contact-item">
+                                <div class="contact-icon-small">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                </div>
+                                <div>
+                                    <strong>邮箱</strong>
+                                    <p>contact@yueyuyue.com</p>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-icon-small">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                </div>
+                                <div>
+                                    <strong>电话</strong>
+                                    <p>400-888-9999</p>
+                                </div>
+                            </div>
+                            <div class="contact-item">
+                                <div class="contact-icon-small">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                </div>
+                                <div>
+                                    <strong>地址</strong>
+                                    <p>北京市海淀区中关村科技园</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="contact-form reveal-right">
+                        <form onsubmit="handleContactSubmit(event)">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>您的姓名</label>
+                                    <input type="text" id="contactName" required placeholder="请输入姓名">
+                                </div>
+                                <div class="form-group">
+                                    <label>联系电话</label>
+                                    <input type="tel" id="contactPhone" required placeholder="请输入电话">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>邮箱地址</label>
+                                <input type="email" id="contactEmail" required placeholder="请输入邮箱">
+                            </div>
+                            <div class="form-group">
+                                <label>咨询类型</label>
+                                <select id="contactType">
+                                    <option value="合作咨询">合作咨询</option>
+                                    <option value="加盟入驻">加盟入驻</option>
+                                    <option value="技术支持">技术支持</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>留言内容</label>
+                                <textarea id="contactMessage" rows="4" placeholder="请描述您的需求..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">发送消息</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="footer-container">
+                    <div class="footer-brand">
+                        <h3>悦预约</h3>
+                        <p>智能在线预约平台，让每一次预约都成为美好体验</p>
+                    </div>
+                    <div class="footer-links">
+                        <div class="footer-col">
+                            <h4>产品</h4>
+                            <a href="#" onclick="navigate('services')">服务大厅</a>
+                            <a href="#" onclick="navigate('providers')">服务商</a>
+                            <a href="#how-it-works">使用流程</a>
+                            <a href="#why-us">为什么选择我们</a>
+                        </div>
+                        <div class="footer-col">
+                            <h4>合作</h4>
+                            <a href="#join-us">加盟入驻</a>
+                            <a href="#contact">联系我们</a>
+                            <a href="#">API文档</a>
+                            <a href="#">合作伙伴</a>
+                        </div>
+                        <div class="footer-col">
+                            <h4>支持</h4>
+                            <a href="#">帮助中心</a>
+                            <a href="#">服务条款</a>
+                            <a href="#">隐私政策</a>
+                            <a href="#">用户协议</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2026 悦预约. All rights reserved.</p>
+                </div>
+            </footer>
+        </section>
+
+        <!-- ==================== APP PAGES ==================== -->
+        <section id="page-dashboard" class="page">
+            <!-- Welcome Banner -->
+            <div class="dashboard-banner">
+                <div class="dashboard-banner-bg">
+                    <div class="hero-orb orb-1" style="width:400px;height:400px;opacity:0.15;"></div>
+                    <div class="hero-orb orb-2" style="width:350px;height:350px;opacity:0.12;"></div>
+                </div>
+                <div class="dashboard-banner-content">
+                    <div class="welcome-section">
+                        <span class="welcome-badge reveal">欢迎回来</span>
+                        <h1 class="welcome-title reveal">你好，<span id="dashUserName"></span></h1>
+                        <p class="welcome-sub reveal">探索今日精选服务，开启美好预约体验</p>
+                    </div>
+                    <div class="welcome-search reveal">
+                        <div class="search-hero">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                            <input type="text" id="dashSearch" placeholder="搜索你需要的服务..." onkeyup="if(event.key==='Enter') performDashSearch()">
+                            <button class="btn btn-primary" onclick="performDashSearch()">搜索</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-body">
+                <!-- Quick Categories -->
+                <div class="section-container">
+                    <button class="page-back" onclick="goBack()" style="margin-bottom:16px;">← 返回</button>
+                    <div class="quick-categories reveal">
+                        <button class="quick-cat active" data-cat="" onclick="filterDashCategory('', this)">全部</button>
+                        <button class="quick-cat" data-cat="医疗" onclick="filterDashCategory('医疗', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                            医疗健康
+                        </button>
+                        <button class="quick-cat" data-cat="美容" onclick="filterDashCategory('美容', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            美容美发
+                        </button>
+                        <button class="quick-cat" data-cat="健身" onclick="filterDashCategory('健身', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                            健身运动
+                        </button>
+                        <button class="quick-cat" data-cat="教育" onclick="filterDashCategory('教育', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/></svg>
+                            教育培训
+                        </button>
+                        <button class="quick-cat" data-cat="家政" onclick="filterDashCategory('家政', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                            家政服务
+                        </button>
+                        <button class="quick-cat" data-cat="法律" onclick="filterDashCategory('法律', this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                            法律咨询
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 优惠推荐 -->
+                <div class="section-container">
+                    <div class="dash-section-header reveal">
+                        <div>
+                            <span class="section-badge accent-orange-bg">限时优惠</span>
+                            <h2 class="section-title" style="font-size:1.8rem;margin-bottom:0;">精选优惠服务</h2>
+                        </div>
+                        <button class="btn btn-ghost" onclick="navigate('services')" style="color:var(--mid-gray);">查看全部 →</button>
+                    </div>
+                    <div class="promo-grid" id="promoServices">
+                        <div class="loading">加载中</div>
+                    </div>
+                </div>
+
+                <!-- 热门推荐 -->
+                <div class="section-container">
+                    <div class="dash-section-header reveal">
+                        <div>
+                            <span class="section-badge accent-blue-bg">热门推荐</span>
+                            <h2 class="section-title" style="font-size:1.8rem;margin-bottom:0;">大家都在预约</h2>
+                        </div>
+                    </div>
+                    <div class="services-grid" id="dashHotServices">
+                        <div class="loading">加载中</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="page-services" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>服务列表</h1>
+                <div class="search-bar">
+                    <input type="text" id="serviceSearch" placeholder="搜索服务..." onkeyup="if(event.key==='Enter') loadServices()">
+                    <select id="serviceCategoryFilter" onchange="loadServices()">
+                        <option value="">全部分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadServices()">搜索</button>
+                </div>
+            </div>
+            <div class="services-grid" id="allServices">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+
+        <section id="page-serviceDetail" class="page">
+            <div id="serviceDetailContent"></div>
+        </section>
+
+        <section id="page-providers" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>服务商列表</h1>
+                <div class="search-bar">
+                    <select id="providerCategoryFilter" onchange="loadProviders()">
+                        <option value="">全部分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                </div>
+            </div>
+            <div class="providers-grid" id="allProviders">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+
+        <section id="page-myAppointments" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>我的预约</h1></div>
+            <div class="appointments-list" id="myAppointmentsList">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+
+        <section id="page-notifications" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>消息通知</h1></div>
+            <div class="notifications-list" id="notificationsList">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+
+        <section id="page-profile" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>个人中心</h1></div>
+            <div class="profile-container" id="profileContent">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+
+        <section id="page-providerDashboard" class="page">
+            <div class="page-header">
+                <button class="page-back" onclick="goBack()">← 返回</button>
+                <h1>服务商管理</h1></div>
+            <div id="providerDashboardContent">
+                <div class="loading">加载中</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('loginModal')">&times;</span>
+            <h2>登录</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group"><label>用户名或邮箱</label><input type="text" id="loginUsername" required placeholder="请输入用户名或邮箱"></div>
+                <div class="form-group"><label>密码</label><input type="password" id="loginPassword" required placeholder="请输入密码"></div>
+                <div class="form-error" id="loginError"></div>
+                <button type="submit" class="btn btn-primary btn-block">登录</button>
+                <p class="form-footer">还没有账号？<a href="#" onclick="switchModal('loginModal','registerModal')">立即注册</a></p>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="registerModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('registerModal')">&times;</span>
+            <h2>注册</h2>
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group"><label>用户名</label><input type="text" id="regUsername" required placeholder="请输入用户名"></div>
+                <div class="form-group"><label>邮箱</label><input type="email" id="regEmail" required placeholder="请输入邮箱"></div>
+                <div class="form-group"><label>密码</label><input type="password" id="regPassword" required placeholder="请输入密码（至少6位）" minlength="6"></div>
+                <div class="form-group"><label>手机号</label><input type="tel" id="regPhone" placeholder="请输入手机号（选填）"></div>
+                <div class="form-group"><label>注册类型</label><select id="regRole"><option value="user">普通用户</option><option value="provider">服务商</option></select></div>
+                <div class="form-error" id="registerError"></div>
+                <button type="submit" class="btn btn-primary btn-block">注册</button>
+                <p class="form-footer">已有账号？<a href="#" onclick="switchModal('registerModal','loginModal')">立即登录</a></p>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="appointmentModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('appointmentModal')">&times;</span>
+            <h2>预约服务</h2>
+            <form id="appointmentForm" onsubmit="handleBookAppointment(event)">
+                <input type="hidden" id="apptServiceId">
+                <div class="form-group"><label>服务名称</label><input type="text" id="apptServiceName" readonly></div>
+                <div class="form-group"><label>预约日期</label><input type="date" id="apptDate" required min=""></div>
+                <div class="form-group"><label>预约时间</label><select id="apptTime" required><option value="">请选择时间</option></select></div>
+                <div class="form-group"><label>备注</label><textarea id="apptNotes" rows="3" placeholder="有什么需要特别说明的？"></textarea></div>
+                <div class="form-error" id="appointmentError"></div>
+                <button type="submit" class="btn btn-primary btn-block">确认预约</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="reviewModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('reviewModal')">&times;</span>
+            <h2>评价服务</h2>
+            <form id="reviewForm" onsubmit="handleSubmitReview(event)">
+                <input type="hidden" id="reviewApptId">
+                <div class="form-group"><label>评分</label>
+                    <div class="star-rating" id="starRating">
+                        <span onclick="setRating(1)">&#9734;</span><span onclick="setRating(2)">&#9734;</span><span onclick="setRating(3)">&#9734;</span><span onclick="setRating(4)">&#9734;</span><span onclick="setRating(5)">&#9734;</span>
+                    </div>
+                    <input type="hidden" id="reviewRating" value="5">
+                </div>
+                <div class="form-group"><label>评价内容</label><textarea id="reviewComment" rows="3" placeholder="分享您的体验..."></textarea></div>
+                <div class="form-error" id="reviewError"></div>
+                <button type="submit" class="btn btn-primary btn-block">提交评价</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="providerRegisterModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('providerRegisterModal')">&times;</span>
+            <h2>成为服务商</h2>
+            <form id="providerRegisterForm" onsubmit="handleProviderRegister(event)">
+                <div class="form-group"><label>服务商名称</label><input type="text" id="provName" required placeholder="请输入您的服务商名称"></div>
+                <div class="form-group"><label>服务分类</label><select id="provCategory" required><option value="">请选择分类</option><option value="医疗">医疗健康</option><option value="美容">美容美发</option><option value="健身">健身运动</option><option value="教育">教育培训</option><option value="家政">家政服务</option><option value="法律">法律咨询</option></select></div>
+                <div class="form-group"><label>简介</label><textarea id="provDescription" rows="3" placeholder="介绍一下您的服务..."></textarea></div>
+                <div class="form-group"><label>地址</label><input type="text" id="provAddress" placeholder="请输入地址"></div>
+                <div class="form-group"><label>联系电话</label><input type="tel" id="provPhone" placeholder="请输入联系电话"></div>
+                <div class="form-error" id="providerRegisterError"></div>
+                <button type="submit" class="btn btn-primary btn-block">提交申请</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="addServiceModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('addServiceModal')">&times;</span>
+            <h2 id="addServiceTitle">发布服务</h2>
+            <form id="addServiceForm" onsubmit="handleAddService(event)">
+                <input type="hidden" id="editServiceId">
+                <div class="form-group"><label>服务名称</label><input type="text" id="svcName" required placeholder="请输入服务名称"></div>
+                <div class="form-group"><label>服务分类</label><select id="svcCategory" required><option value="">请选择分类</option><option value="医疗">医疗健康</option><option value="美容">美容美发</option><option value="健身">健身运动</option><option value="教育">教育培训</option><option value="家政">家政服务</option><option value="法律">法律咨询</option></select></div>
+                <div class="form-group"><label>描述</label><textarea id="svcDescription" rows="3" placeholder="详细描述您的服务..."></textarea></div>
+                <div class="form-row"><div class="form-group"><label>价格 (元)</label><input type="number" id="svcPrice" step="0.01" min="0" value="0" required></div><div class="form-group"><label>时长 (分钟)</label><input type="number" id="svcDuration" min="10" value="60" required></div></div>
+                <div class="form-error" id="addServiceError"></div>
+                <button type="submit" class="btn btn-primary btn-block">发布服务</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!-- Back to Top -->
+    <button class="back-to-top" id="backToTop" onclick="scrollToTop()" aria-label="返回顶部">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="js/app.js"></script>
+</body>
+</html>

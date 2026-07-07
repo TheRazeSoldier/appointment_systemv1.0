@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>悦预约 - 在线预约系统</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Floating Particles Background -->
+    <div class="particles-container" id="particlesContainer"></div>
+    
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo" onclick="navigate('home')">
+                <span class="logo-icon">&#9830;</span> 悦预约
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="#" onclick="navigate('home')">首页</a>
+                <a href="#" onclick="navigate('services')">服务</a>
+                <a href="#" onclick="navigate('providers')">服务商</a>
+            </div>
+            <div class="nav-actions" id="navActions">
+                <a href="#" class="btn btn-outline" onclick="showModal('loginModal')">登录</a>
+                <a href="#" class="btn btn-primary" onclick="showModal('registerModal')">注册</a>
+            </div>
+            <div class="nav-user" id="navUser" style="display:none;">
+                <div class="user-dropdown">
+                    <button class="user-btn" onclick="toggleDropdown('userDropdown')">
+                        <span class="user-avatar" id="userAvatar"></span>
+                        <span id="userNameDisplay"></span>
+                        <span class="badge" id="notifBadge" style="display:none;">0</span>
+                    </button>
+                    <div class="dropdown-menu" id="userDropdown">
+                        <a href="#" onclick="navigate('myAppointments')">我的预约</a>
+                        <a href="#" onclick="navigate('profile')">个人中心</a>
+                        <a href="#" id="providerLink" onclick="navigate('providerDashboard')" style="display:none;">服务商管理</a>
+                        <a href="#" onclick="navigate('notifications')">消息通知 <span class="badge" id="notifBadgeMenu">0</span></a>
+                        <hr>
+                        <a href="#" onclick="logout()">退出登录</a>
+                    </div>
+                </div>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">&#9776;</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main id="mainContent">
+        <!-- Home Page -->
+        <section id="page-home" class="page active">
+            <!-- Hero Section -->
+            <div class="hero">
+                <div class="hero-content">
+                    <h1 class="hero-title">轻松预约，畅享服务</h1>
+                    <p class="hero-subtitle">医疗、美容、健身、教育... 一站式在线预约平台，让您的生活更加便捷</p>
+                    <div class="hero-search">
+                        <input type="text" id="heroSearch" placeholder="搜索服务或服务商..." onkeyup="if(event.key==='Enter') searchFromHero()">
+                        <select id="heroCategory">
+                            <option value="">全部分类</option>
+                            <option value="医疗">医疗健康</option>
+                            <option value="美容">美容美发</option>
+                            <option value="健身">健身运动</option>
+                            <option value="教育">教育培训</option>
+                            <option value="家政">家政服务</option>
+                            <option value="法律">法律咨询</option>
+                        </select>
+                        <button class="btn btn-primary btn-lg" onclick="searchFromHero()">搜索</button>
+                    </div>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item"><span class="stat-number" id="statUsers">0</span><span>注册用户</span></div>
+                    <div class="stat-item"><span class="stat-number" id="statProviders">0</span><span>服务商</span></div>
+                    <div class="stat-item"><span class="stat-number" id="statServices">0</span><span>服务项目</span></div>
+                    <div class="stat-item"><span class="stat-number" id="statAppointments">0</span><span>预约完成</span></div>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="section">
+                <h2 class="section-title">服务分类</h2>
+                <div class="categories-grid">
+                    <div class="category-card" onclick="searchByCategory('医疗')">
+                        <div class="category-icon">&#9764;</div>
+                        <h3>医疗健康</h3>
+                        <p>预约医生、体检、牙科等服务</p>
+                    </div>
+                    <div class="category-card" onclick="searchByCategory('美容')">
+                        <div class="category-icon">&#9824;</div>
+                        <h3>美容美发</h3>
+                        <p>美容、美发、美甲、SPA</p>
+                    </div>
+                    <div class="category-card" onclick="searchByCategory('健身')">
+                        <div class="category-icon">&#9822;</div>
+                        <h3>健身运动</h3>
+                        <p>健身房、瑜伽、游泳课程</p>
+                    </div>
+                    <div class="category-card" onclick="searchByCategory('教育')">
+                        <div class="category-icon">&#9827;</div>
+                        <h3>教育培训</h3>
+                        <p>家教、培训、兴趣班</p>
+                    </div>
+                    <div class="category-card" onclick="searchByCategory('家政')">
+                        <div class="category-icon">&#9829;</div>
+                        <h3>家政服务</h3>
+                        <p>保洁、维修、搬家服务</p>
+                    </div>
+                    <div class="category-card" onclick="searchByCategory('法律')">
+                        <div class="category-icon">&#9830;</div>
+                        <h3>法律咨询</h3>
+                        <p>律师咨询、法律顾问</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Featured Services -->
+            <div class="section">
+                <h2 class="section-title">热门服务</h2>
+                <div class="services-grid" id="featuredServices">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- Featured Providers -->
+            <div class="section">
+                <h2 class="section-title">推荐服务商</h2>
+                <div class="providers-grid" id="featuredProviders">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Services Page -->
+        <section id="page-services" class="page">
+            <div class="page-header">
+                <h1>服务列表</h1>
+                <div class="search-bar">
+                    <input type="text" id="serviceSearch" placeholder="搜索服务..." onkeyup="if(event.key==='Enter') loadServices()">
+                    <select id="serviceCategoryFilter" onchange="loadServices()">
+                        <option value="">全部分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadServices()">搜索</button>
+                </div>
+            </div>
+            <div class="services-grid" id="allServices">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- Service Detail Page -->
+        <section id="page-serviceDetail" class="page">
+            <div id="serviceDetailContent"></div>
+        </section>
+
+        <!-- Providers Page -->
+        <section id="page-providers" class="page">
+            <div class="page-header">
+                <h1>服务商列表</h1>
+                <div class="search-bar">
+                    <select id="providerCategoryFilter" onchange="loadProviders()">
+                        <option value="">全部分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                </div>
+            </div>
+            <div class="providers-grid" id="allProviders">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- My Appointments Page -->
+        <section id="page-myAppointments" class="page">
+            <div class="page-header">
+                <h1>我的预约</h1>
+            </div>
+            <div class="appointments-list" id="myAppointmentsList">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- Notifications Page -->
+        <section id="page-notifications" class="page">
+            <div class="page-header">
+                <h1>消息通知</h1>
+            </div>
+            <div class="notifications-list" id="notificationsList">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- Profile Page -->
+        <section id="page-profile" class="page">
+            <div class="page-header">
+                <h1>个人中心</h1>
+            </div>
+            <div class="profile-container" id="profileContent">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+
+        <!-- Provider Dashboard -->
+        <section id="page-providerDashboard" class="page">
+            <div class="page-header">
+                <h1>服务商管理</h1>
+            </div>
+            <div id="providerDashboardContent">
+                <div class="loading">加载中...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('loginModal')">&times;</span>
+            <h2>登录</h2>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>用户名或邮箱</label>
+                    <input type="text" id="loginUsername" required placeholder="请输入用户名或邮箱">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="loginPassword" required placeholder="请输入密码">
+                </div>
+                <div class="form-error" id="loginError"></div>
+                <button type="submit" class="btn btn-primary btn-block">登录</button>
+                <p class="form-footer">还没有账号？<a href="#" onclick="switchModal('loginModal','registerModal')">立即注册</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal" id="registerModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('registerModal')">&times;</span>
+            <h2>注册</h2>
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="regUsername" required placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" id="regEmail" required placeholder="请输入邮箱">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="regPassword" required placeholder="请输入密码（至少6位）" minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>手机号</label>
+                    <input type="tel" id="regPhone" placeholder="请输入手机号（选填）">
+                </div>
+                <div class="form-group">
+                    <label>注册类型</label>
+                    <select id="regRole">
+                        <option value="user">普通用户</option>
+                        <option value="provider">服务商</option>
+                    </select>
+                </div>
+                <div class="form-error" id="registerError"></div>
+                <button type="submit" class="btn btn-primary btn-block">注册</button>
+                <p class="form-footer">已有账号？<a href="#" onclick="switchModal('registerModal','loginModal')">立即登录</a></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Appointment Modal -->
+    <div class="modal" id="appointmentModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('appointmentModal')">&times;</span>
+            <h2>预约服务</h2>
+            <form id="appointmentForm" onsubmit="handleBookAppointment(event)">
+                <input type="hidden" id="apptServiceId">
+                <div class="form-group">
+                    <label>服务名称</label>
+                    <input type="text" id="apptServiceName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>预约日期</label>
+                    <input type="date" id="apptDate" required min="">
+                </div>
+                <div class="form-group">
+                    <label>预约时间</label>
+                    <select id="apptTime" required>
+                        <option value="">请选择时间</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>备注</label>
+                    <textarea id="apptNotes" rows="3" placeholder="有什么需要特别说明的？"></textarea>
+                </div>
+                <div class="form-error" id="appointmentError"></div>
+                <button type="submit" class="btn btn-primary btn-block">确认预约</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div class="modal" id="reviewModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('reviewModal')">&times;</span>
+            <h2>评价服务</h2>
+            <form id="reviewForm" onsubmit="handleSubmitReview(event)">
+                <input type="hidden" id="reviewApptId">
+                <div class="form-group">
+                    <label>评分</label>
+                    <div class="star-rating" id="starRating">
+                        <span onclick="setRating(1)">&#9734;</span>
+                        <span onclick="setRating(2)">&#9734;</span>
+                        <span onclick="setRating(3)">&#9734;</span>
+                        <span onclick="setRating(4)">&#9734;</span>
+                        <span onclick="setRating(5)">&#9734;</span>
+                    </div>
+                    <input type="hidden" id="reviewRating" value="5">
+                </div>
+                <div class="form-group">
+                    <label>评价内容</label>
+                    <textarea id="reviewComment" rows="3" placeholder="分享您的体验..."></textarea>
+                </div>
+                <div class="form-error" id="reviewError"></div>
+                <button type="submit" class="btn btn-primary btn-block">提交评价</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Provider Register Modal -->
+    <div class="modal" id="providerRegisterModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('providerRegisterModal')">&times;</span>
+            <h2>成为服务商</h2>
+            <form id="providerRegisterForm" onsubmit="handleProviderRegister(event)">
+                <div class="form-group">
+                    <label>服务商名称</label>
+                    <input type="text" id="provName" required placeholder="请输入您的服务商名称">
+                </div>
+                <div class="form-group">
+                    <label>服务分类</label>
+                    <select id="provCategory" required>
+                        <option value="">请选择分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>简介</label>
+                    <textarea id="provDescription" rows="3" placeholder="介绍一下您的服务..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>地址</label>
+                    <input type="text" id="provAddress" placeholder="请输入地址">
+                </div>
+                <div class="form-group">
+                    <label>联系电话</label>
+                    <input type="tel" id="provPhone" placeholder="请输入联系电话">
+                </div>
+                <div class="form-error" id="providerRegisterError"></div>
+                <button type="submit" class="btn btn-primary btn-block">提交申请</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Service Modal -->
+    <div class="modal" id="addServiceModal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('addServiceModal')">&times;</span>
+            <h2 id="addServiceTitle">发布服务</h2>
+            <form id="addServiceForm" onsubmit="handleAddService(event)">
+                <input type="hidden" id="editServiceId">
+                <div class="form-group">
+                    <label>服务名称</label>
+                    <input type="text" id="svcName" required placeholder="请输入服务名称">
+                </div>
+                <div class="form-group">
+                    <label>服务分类</label>
+                    <select id="svcCategory" required>
+                        <option value="">请选择分类</option>
+                        <option value="医疗">医疗健康</option>
+                        <option value="美容">美容美发</option>
+                        <option value="健身">健身运动</option>
+                        <option value="教育">教育培训</option>
+                        <option value="家政">家政服务</option>
+                        <option value="法律">法律咨询</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea id="svcDescription" rows="3" placeholder="详细描述您的服务..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>价格 (元)</label>
+                        <input type="number" id="svcPrice" step="0.01" min="0" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label>时长 (分钟)</label>
+                        <input type="number" id="svcDuration" min="10" value="60" required>
+                    </div>
+                </div>
+                <div class="form-error" id="addServiceError"></div>
+                <button type="submit" class="btn btn-primary btn-block">发布服务</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
