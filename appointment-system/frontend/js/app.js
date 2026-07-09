@@ -455,18 +455,9 @@ function loadPromoServices() {
     if (!container) return;
     container.innerHTML = '<div class="loading">加载中</div>';
 
-    const params = new URLSearchParams();
-    if (dashCategory) params.append('category', dashCategory);
-
-    api('/api/services?' + params.toString()).then(({ data }) => {
+    api('/api/recommend/promos').then(({ data }) => {
         if (data.services && data.services.length > 0) {
-            // Simulate promo: pick 3 services, add fake discount
-            const promos = data.services.slice(0, 3).map((s, i) => ({
-                ...s,
-                originalPrice: s.price > 0 ? (s.price * (1.2 + i * 0.15)).toFixed(2) : 0,
-                discount: [20, 30, 25][i]
-            }));
-            container.innerHTML = promos.map(s => `
+            container.innerHTML = data.services.slice(0, 6).map(s => `
                 <div class="promo-card reveal" onclick="navigate('serviceDetail', ${s.id})">
                     <div class="promo-card-image ${getCategoryClass(s.category)}">
                         <span class="promo-tag">${s.discount}% OFF</span>
@@ -479,8 +470,8 @@ function loadPromoServices() {
                     </div>
                     <div class="promo-card-footer">
                         <div class="promo-price">
-                            <span class="current">${s.price > 0 ? '¥' + s.price : '免费'}</span>
-                            ${s.originalPrice > 0 ? `<span class="original">¥${s.originalPrice}</span>` : ''}
+                            <span class="current">${s.price > 0 ? '¥' + s.price.toFixed(2) : '免费'}</span>
+                            ${s.originalPrice > 0 && s.originalPrice != s.price ? `<span class="original">¥${s.originalPrice.toFixed(2)}</span>` : ''}
                         </div>
                         <span class="promo-discount">-${s.discount}%</span>
                     </div>
@@ -1182,16 +1173,33 @@ async function loadProviderDashboard() {
                     </div>
                     <div id="tab-stats" style="display:none;">
                         <div class="profile-card">
-                            <h3 style="margin-bottom:16px;">数据统计</h3>
-                            <div style="display:flex;gap:12px;margin-bottom:16px;">
-                                <select id="dashStatsPeriod" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;">
-                                    <option value="day">按天</option>
-                                    <option value="month" selected>按月</option>
-                                    <option value="year">按年</option>
-                                </select>
-                                <button class="btn btn-primary btn-sm" onclick="loadProviderStatsTab()">查询</button>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                                <h3>数据统计</h3>
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <select id="dashStatsPeriod" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">
+                                        <option value="day">按天</option>
+                                        <option value="month" selected>按月</option>
+                                        <option value="year">按年</option>
+                                    </select>
+                                    <button class="btn btn-primary btn-sm" onclick="loadProviderStatsTab()">查询</button>
+                                </div>
                             </div>
-                            <div id="dashStatsTable"><p style="color:var(--mid-gray);text-align:center;padding:20px;">点击查询查看统计数据</p></div>
+                            <div id="dashStatsSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;"></div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                                <div>
+                                    <h4 style="margin-bottom:12px;font-size:0.95rem;">收入趋势</h4>
+                                    <div id="dashRevenueChart" style="height:200px;display:flex;align-items:flex-end;gap:4px;padding:0 4px;"></div>
+                                    <div id="dashRevenueLabels" style="display:flex;gap:4px;margin-top:6px;"></div>
+                                </div>
+                                <div>
+                                    <h4 style="margin-bottom:12px;font-size:0.95rem;">预约状态</h4>
+                                    <div id="dashStatusChart" style="display:flex;align-items:center;gap:20px;">
+                                        <div id="dashDonut" style="width:120px;height:120px;border-radius:50%;flex-shrink:0;"></div>
+                                        <div id="dashStatusLegend"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="dashServiceStats" style="margin-top:24px;"></div>
                         </div>
                     </div>
                 </div>
@@ -1235,22 +1243,71 @@ function updateProviderInfo(e) {
 }
 
 function loadProviderStatsTab() {
+    if (!currentProvider) return;
     const period = $('dashStatsPeriod')?.value || 'month';
-    const container = $('dashStatsTable');
-    if (!container || !currentProvider) return;
-    container.innerHTML = '<div class="loading">加载中</div>';
+    const summaryEl = $('dashStatsSummary');
+    const revenueChart = $('dashRevenueChart');
+    const revenueLabels = $('dashRevenueLabels');
+    const donutEl = $('dashDonut');
+    const legendEl = $('dashStatusLegend');
+    const svcEl = $('dashServiceStats');
+    
+    summaryEl.innerHTML = '<div class="loading" style="grid-column:1/-1;">加载中</div>';
+    revenueChart.innerHTML = '';
+    donutEl.style.background = '';
+    legendEl.innerHTML = '';
+    svcEl.innerHTML = '';
+    
+    api('/api/stats/provider-summary?provider_id=' + currentProvider.id).then(({ data }) => {
+        const s = data.summary || {};
+        const colors = ['var(--blue)', 'var(--green)', 'var(--orange)', '#EF4444'];
+        const statusColors = { 'pending': 'var(--orange)', 'confirmed': 'var(--blue)', 'completed': 'var(--green)', 'cancelled': '#EF4444' };
+        const statusLabels = { 'pending': '待确认', 'confirmed': '已确认', 'completed': '已完成', 'cancelled': '已取消' };
+        
+        summaryEl.innerHTML = [
+            { label: '总预约', value: s.total_appointments, icon: '📅' },
+            { label: '总收入', value: '¥' + (s.total_revenue || 0).toFixed(0), icon: '💰' },
+            { label: '平均评分', value: (s.avg_rating || 0).toFixed(1) + ' ★', icon: '⭐' },
+            { label: '待处理', value: s.pending_count, icon: '⏳' }
+        ].map((c, i) => '<div style="background:' + colors[i] + '10;border-radius:10px;padding:16px;text-align:center;border:1px solid ' + colors[i] + '30;"><div style="font-size:1.8rem;margin-bottom:4px;">' + c.icon + '</div><div style="font-size:1.5rem;font-weight:700;color:' + colors[i] + ';">' + c.value + '</div><div style="font-size:0.8rem;color:var(--mid-gray);margin-top:4px;">' + c.label + '</div></div>').join('');
+        
+        const total = s.total_appointments || 1;
+        const dist = data.status_distribution || [];
+        if (dist.length > 0) {
+            const percentages = dist.map(d => d.percentage);
+            const conicParts = dist.map((d, i) => {
+                const pct = d.percentage;
+                const color = statusColors[d.status] || '#ccc';
+                return color + ' ' + (percentages.slice(0, i).reduce((a, b) => a + b, 0)) + '% ' + (percentages.slice(0, i + 1).reduce((a, b) => a + b, 0)) + '%';
+            });
+            donutEl.style.background = 'conic-gradient(' + conicParts.join(', ') + ')';
+            donutEl.style.boxShadow = 'inset 0 0 0 20px #fff';
+            legendEl.innerHTML = dist.map(d => '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.85rem;"><span style="width:12px;height:12px;border-radius:3px;background:' + (statusColors[d.status] || '#ccc') + ';"></span>' + (statusLabels[d.status] || d.status) + ': <strong>' + d.count + '</strong></div>').join('');
+        }
+        
+        const svcStats = data.service_stats || [];
+        if (svcStats.length > 0) {
+            svcEl.innerHTML = '<h4 style="margin-bottom:12px;font-size:0.95rem;">服务统计</h4><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="background:var(--light-gray);"><th style="padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);">服务名称</th><th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">价格</th><th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">预约数</th><th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">收入</th><th style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">评分</th></tr></thead><tbody>' +
+                svcStats.map(sv => '<tr><td style="padding:8px 12px;border-bottom:1px solid var(--border);">' + escHtml(sv.name) + '</td><td style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">¥' + (sv.price || 0).toFixed(2) + '</td><td style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">' + sv.appointment_count + '</td><td style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">¥' + (sv.revenue || 0).toFixed(2) + '</td><td style="padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);">' + (sv.avg_rating || 0).toFixed(1) + '</td></tr>').join('') +
+                '</tbody></table>';
+        }
+    }).catch(() => {
+        summaryEl.innerHTML = '<p style="color:var(--red);text-align:center;grid-column:1/-1;padding:20px;">加载失败</p>';
+    });
+    
     api('/api/stats/provider-time?provider_id=' + currentProvider.id + '&period=' + period).then(({ data }) => {
         const items = data.data || [];
-        if (items.length === 0) {
-            container.innerHTML = '<p style="color:var(--mid-gray);text-align:center;padding:20px;">暂无数据</p>';
-            return;
+        if (items.length === 0) return;
+        const maxRev = Math.max(...items.map(i => i.revenue || 0), 1);
+        revenueChart.innerHTML = items.map(i => {
+            const pct = (i.revenue / maxRev * 100);
+            return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;"><div style="width:100%;max-width:40px;background:var(--blue);border-radius:4px 4px 0 0;height:' + pct + '%;min-height:4px;transition:height 0.3s;" title="¥' + (i.revenue || 0).toFixed(0) + '"></div></div>';
+        }).join('');
+        const labels = items.map(i => i.period);
+        if (labels.length <= 7) {
+            revenueLabels.innerHTML = labels.map(l => '<div style="flex:1;text-align:center;font-size:0.7rem;color:var(--mid-gray);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(l) + '</div>').join('');
         }
-        container.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="background:var(--light-gray);"><th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">时段</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">预约数</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">收入</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">平均评分</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">评价数</th></tr></thead><tbody>' +
-            items.map(i => '<tr><td style="padding:10px 12px;border-bottom:1px solid var(--border);">' + escHtml(i.period) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.appointment_count + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">¥' + (i.revenue || 0).toFixed(2) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + (i.avg_rating || 0).toFixed(1) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.review_count + '</td></tr>').join('') +
-        '</tbody></table>';
-    }).catch(() => {
-        container.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;">加载失败</p>';
-    });
+    }).catch(() => {});
 }
 
 // ==================== Admin Dashboard ====================
@@ -1838,6 +1895,7 @@ function getCategoryClass(category) {
 }
 
 function getStatusText(status) {
+    if (status === 'confirmed' && currentUser && currentUser.role === 'user') return '预约成功';
     const map = { 'pending': '待确认', 'confirmed': '已确认', 'completed': '已完成', 'cancelled': '已取消' };
     return map[status] || status;
 }

@@ -1537,24 +1537,98 @@ std::vector<models::Service> DatabaseService::getRecommendedServices(int userId,
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<models::Service> services;
     
+    sqlite3_stmt* stmt;
+    
+    if (userId > 0) {
+        const char* sql = R"(
+            SELECT s.*,
+                COALESCE(pop.cnt, 0) * 0.5 + COALESCE(r.avg_rating, 0) * 10 +
+                CASE WHEN s.category IN (
+                    SELECT DISTINCT s2.category FROM appointments a
+                    JOIN services s2 ON a.service_id = s2.id
+                    WHERE a.user_id = ? AND a.status IN ('completed', 'confirmed')
+                ) THEN 50 ELSE 0 END AS score
+            FROM services s
+            LEFT JOIN (
+                SELECT service_id, COUNT(*) as cnt
+                FROM appointments WHERE status='completed'
+                GROUP BY service_id
+            ) pop ON s.id = pop.service_id
+            LEFT JOIN (
+                SELECT service_id, AVG(rating) as avg_rating
+                FROM reviews GROUP BY service_id
+            ) r ON s.id = r.service_id
+            WHERE s.status='active'
+            AND (s.id NOT IN (SELECT service_id FROM appointments WHERE user_id = ?) OR ? = 0)
+            ORDER BY score DESC
+            LIMIT ?;
+        )";
+        if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return services;
+        sqlite3_bind_int(stmt, 1, userId);
+        sqlite3_bind_int(stmt, 2, userId);
+        sqlite3_bind_int(stmt, 3, userId);
+        sqlite3_bind_int(stmt, 4, limit);
+    } else {
+        const char* sql = R"(
+            SELECT s.*,
+                COALESCE(pop.cnt, 0) * 0.5 + COALESCE(r.avg_rating, 0) * 10 AS score
+            FROM services s
+            LEFT JOIN (
+                SELECT service_id, COUNT(*) as cnt
+                FROM appointments WHERE status='completed'
+                GROUP BY service_id
+            ) pop ON s.id = pop.service_id
+            LEFT JOIN (
+                SELECT service_id, AVG(rating) as avg_rating
+                FROM reviews GROUP BY service_id
+            ) r ON s.id = r.service_id
+            WHERE s.status='active'
+            ORDER BY score DESC
+            LIMIT ?;
+        )";
+        if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return services;
+        sqlite3_bind_int(stmt, 1, limit);
+    }
+    
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        models::Service s;
+        s.id = sqlite3_column_int(stmt, 0);
+        s.provider_id = sqlite3_column_int(stmt, 1);
+        s.name = (const char*)sqlite3_column_text(stmt, 2);
+        s.description = sqlite3_column_text(stmt, 3) ? (const char*)sqlite3_column_text(stmt, 3) : "";
+        s.category = sqlite3_column_text(stmt, 4) ? (const char*)sqlite3_column_text(stmt, 4) : "";
+        s.price = sqlite3_column_double(stmt, 5);
+        s.duration = sqlite3_column_int(stmt, 6);
+        s.image = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
+        s.status = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        s.created_at = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "";
+        services.push_back(s);
+    }
+    sqlite3_finalize(stmt);
+    return services;
+}
+
+std::vector<models::Service> DatabaseService::getPromoServices(int limit) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<models::Service> services;
+    
     const char* sql = R"(
-        SELECT s.* FROM services s
-        LEFT JOIN providers p ON s.provider_id = p.id
-        LEFT JOIN (
-            SELECT service_id, COUNT(*) as cnt 
-            FROM appointments a 
-            WHERE a.status = 'completed' 
-            GROUP BY service_id
-        ) pop ON s.id = pop.service_id
-        WHERE s.status='active'
-        ORDER BY COALESCE(pop.cnt, 0) DESC, (SELECT AVG(r.rating) FROM reviews r WHERE r.service_id = s.id) DESC
+        SELECT DISTINCT s.*
+        FROM services s
+        JOIN coupons c ON s.provider_id = c.provider_id
+        WHERE s.status = 'active'
+          AND c.status = 'active'
+          AND c.total_count > c.used_count
+        ORDER BY 
+            CASE WHEN c.coupon_type = 'percent' THEN c.discount_percent ELSE 0 END DESC,
+            CASE WHEN c.coupon_type = 'fixed' THEN c.discount_amount ELSE 0 END DESC
         LIMIT ?;
     )";
     
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return services;
-    
     sqlite3_bind_int(stmt, 1, limit);
+    
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         models::Service s;
         s.id = sqlite3_column_int(stmt, 0);

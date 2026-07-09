@@ -87,7 +87,48 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
                 {"created_at", a.created_at}
             });
         }
-        res.set_content(result.dump(), "application/json");
+        res.set_content(json{{"appointments", result}}.dump(), "application/json");
+    });
+
+    svr.Get("/api/appointments", [](const httplib::Request& req, httplib::Response& res) {
+        AuthUser authUser;
+        if (!AuthMiddleware::requireAuth(req, res, authUser)) return;
+        
+        auto& db = DatabaseService::getInstance();
+        std::vector<models::Appointment> appointments;
+        
+        if (authUser.role == "provider") {
+            auto provider = db.getProviderByUserId(authUser.userId);
+            if (provider.id > 0) {
+                appointments = db.getAppointmentsByProvider(provider.id);
+            }
+        } else {
+            appointments = db.getAppointmentsByUser(authUser.userId);
+        }
+        
+        json result = json::array();
+        for (const auto& a : appointments) {
+            auto service = db.getServiceById(a.service_id);
+            auto provider = db.getProviderById(a.provider_id);
+            auto user = db.getUserById(a.user_id);
+            
+            result.push_back({
+                {"id", a.id},
+                {"user_id", a.user_id},
+                {"user_name", user.username},
+                {"service_id", a.service_id},
+                {"service_name", service.name},
+                {"service_price", service.price},
+                {"provider_id", a.provider_id},
+                {"provider_name", provider.name},
+                {"appointment_date", a.appointment_date},
+                {"appointment_time", a.appointment_time},
+                {"status", a.status},
+                {"notes", a.notes},
+                {"created_at", a.created_at}
+            });
+        }
+        res.set_content(json{{"appointments", result}}.dump(), "application/json");
     });
 
     svr.Get(R"(/api/appointments/(\d+))", [](const httplib::Request& req, httplib::Response& res) {

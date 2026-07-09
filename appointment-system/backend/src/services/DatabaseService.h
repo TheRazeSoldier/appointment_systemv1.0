@@ -40,6 +40,7 @@ public:
     std::vector<models::Service> searchServices(const std::string& keyword, const std::string& category);
     std::vector<models::Service> advancedSearchServices(const std::string& keyword, const std::string& category, double minPrice, double maxPrice, int minDuration, int maxDuration, const std::string& sortBy, const std::string& sortOrder);
     std::vector<models::Service> getRecommendedServices(int userId, int limit);
+    std::vector<models::Service> getPromoServices(int limit);
     std::vector<std::string> getAllCategories();
     bool updateService(int id, const models::Service& service);
     bool deleteService(int id);
