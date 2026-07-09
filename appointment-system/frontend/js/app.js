@@ -8,6 +8,8 @@ let currentProvider = null;
 let currentPage = 'home';
 let currentPageData = null;
 let navigationHistory = [];
+let _bookingProviderId = 0;
+let _bookingBizHours = '';
 
 // ==================== Helpers ====================
 function $(id) { return document.getElementById(id); }
@@ -306,6 +308,7 @@ function updateNavState() {
     const userNameDisplay = $('userNameDisplay');
     const userAvatar = $('userAvatar');
     const providerLink = $('providerLink');
+    const navProviderLink = $('navProviderLink');
     const adminLink = $('adminLink');
     const appLink = $('appLink');
     const providerFeatureCard = $('providerFeatureCard');
@@ -319,16 +322,19 @@ function updateNavState() {
         if (currentUser.role === 'admin') {
             if (adminLink) adminLink.style.display = 'block';
             if (providerLink) providerLink.style.display = 'block';
+            if (navProviderLink) navProviderLink.style.display = 'none';
             if (appLink) appLink.style.display = 'none';
             if (providerFeatureCard) providerFeatureCard.style.display = 'none';
         } else if (currentUser.role === 'provider') {
             if (adminLink) adminLink.style.display = 'none';
             if (providerLink) providerLink.style.display = 'block';
+            if (navProviderLink) navProviderLink.style.display = 'inline-block';
             if (appLink) appLink.style.display = 'none';
             if (providerFeatureCard) providerFeatureCard.style.display = 'flex';
         } else {
             if (adminLink) adminLink.style.display = 'none';
             if (providerLink) providerLink.style.display = 'none';
+            if (navProviderLink) navProviderLink.style.display = 'none';
             if (appLink) appLink.style.display = 'block';
             if (providerFeatureCard) providerFeatureCard.style.display = 'none';
         }
@@ -337,6 +343,7 @@ function updateNavState() {
         navActions.style.display = 'flex';
         navUser.style.display = 'none';
         if (providerLink) providerLink.style.display = 'none';
+        if (navProviderLink) navProviderLink.style.display = 'none';
         if (adminLink) adminLink.style.display = 'none';
         if (appLink) appLink.style.display = 'none';
         if (providerFeatureCard) providerFeatureCard.style.display = 'none';
@@ -610,8 +617,9 @@ function loadServices() {
     container.innerHTML = '<div class="loading">加载中</div>';
     
     api('/api/services/search?' + params.toString()).then(({ data }) => {
-        if (data.services && data.services.length > 0) {
-            container.innerHTML = data.services.map(s => `
+        const services = Array.isArray(data) ? data : (data.services || []);
+        if (services.length > 0) {
+            container.innerHTML = services.map(s => `
                 <div class="service-card" onclick="navigate('serviceDetail', ${s.id})">
                     <div class="service-card-image ${getCategoryClass(s.category)}">
                         <span class="icon-text">${getCategoryIcon(s.category)}</span>
@@ -639,10 +647,16 @@ function loadServiceDetail(serviceId) {
     const container = $('serviceDetailContent');
     container.innerHTML = '<div class="loading">加载中</div>';
     
-    api('/api/services/' + serviceId).then(({ data }) => {
-        if (data.service) {
-            const s = data.service;
-            const p = data.provider;
+    Promise.all([
+        api('/api/services/' + serviceId),
+        api('/api/providers')
+    ]).then(([{ data: svc }, { data: providers }]) => {
+        if (svc && svc.id) {
+            const s = svc;
+            const allProviders = Array.isArray(providers) ? providers : (providers.providers || []);
+            const p = allProviders.find(pr => pr.id === s.provider_id) || { name: s.provider_name || '未知', category: s.category || '', description: '' };
+            _bookingProviderId = s.provider_id;
+            _bookingBizHours = p.business_hours || '';
             container.innerHTML = `
                 <div class="service-detail">
                     <button class="page-back" onclick="goBack()">← 返回</button>
@@ -653,12 +667,12 @@ function loadServiceDetail(serviceId) {
                             <div><span class="label">价格</span><span class="value" style="color:var(--orange);">${s.price > 0 ? '¥' + s.price : '免费'}</span></div>
                             <div><span class="label">时长</span><span class="value">${s.duration} 分钟</span></div>
                             <div><span class="label">分类</span><span class="value">${escHtml(s.category)}</span></div>
-                            <div><span class="label">评分</span><span class="value" style="color:var(--orange);">★ ${(data.avg_rating || 0).toFixed(1)}</span></div>
+                            <div><span class="label">评分</span><span class="value" style="color:var(--orange);">★ ${(s.rating || 0).toFixed(1)}</span></div>
                         </div>
                         <button class="btn btn-primary" style="margin-top:20px;background:var(--orange);" onclick="openAppointmentModal(${s.id}, '${escHtml(s.name)}')">立即预约</button>
                     </div>
                     <div class="detail-section">
-                        <h2>服务商信息</h2>
+                        <h2>${escHtml(p.name)}</h2>
                         <div style="display:flex;align-items:center;gap:16px;">
                             <div class="profile-avatar-lg" style="width:56px;height:56px;font-size:1.5rem;">${p.name.charAt(0)}</div>
                             <div>
@@ -669,8 +683,8 @@ function loadServiceDetail(serviceId) {
                         </div>
                     </div>
                     <div class="detail-section">
-                        <h2>用户评价 (${data.reviews ? data.reviews.length : 0})</h2>
-                        ${data.reviews && data.reviews.length > 0 ? data.reviews.map(r => `
+                        <h2>用户评价 (${s.reviews ? s.reviews.length : 0})</h2>
+                        ${s.reviews && s.reviews.length > 0 ? s.reviews.map(r => `
                             <div style="padding:16px 0;border-bottom:1px solid var(--light-gray);">
                                 <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
                                     <span style="font-weight:600;">${escHtml(r.username)}</span>
@@ -733,16 +747,63 @@ function openAppointmentModal(serviceId, serviceName) {
     $('apptTime').value = '';
     $('apptNotes').value = '';
     $('appointmentError').textContent = '';
-    
-    const timeSelect = $('apptTime');
-    timeSelect.innerHTML = '<option value="">请选择时间</option>';
-    for (let h = 8; h <= 20; h++) {
-        for (let m = 0; m < 60; m += 30) {
-            const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-            timeSelect.innerHTML += `<option value="${time}">${time}</option>`;
-        }
-    }
+    $('apptTime').innerHTML = '<option value="">请先选择日期</option>';
+    $('apptDate').onchange = function() { updateAvailableTimes(); };
     showModal('appointmentModal');
+}
+
+function updateAvailableTimes() {
+    const dateStr = $('apptDate').value;
+    const timeSelect = $('apptTime');
+    if (!dateStr || !_bookingProviderId) {
+        timeSelect.innerHTML = '<option value="">请选择日期</option>';
+        return;
+    }
+    timeSelect.innerHTML = '<option value="">加载中...</option>';
+
+    const dayNames = ['周日','周一','周二','周三','周四','周五','周六'];
+    const date = new Date(dateStr + 'T00:00:00');
+    const dayName = dayNames[date.getDay()];
+
+    let bizHours = {};
+    try { bizHours = JSON.parse(_bookingBizHours); } catch(e) {}
+    const range = bizHours[dayName];
+    if (!range) {
+        timeSelect.innerHTML = '<option value="">今日不营业</option>';
+        return;
+    }
+
+    const parts = range.split('-');
+    if (parts.length < 2) {
+        timeSelect.innerHTML = '<option value="">营业时间格式错误</option>';
+        return;
+    }
+    const [startH, startM] = parts[0].split(':').map(Number);
+    const [endH, endM] = parts[1].split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+
+    api('/api/appointments/availability?provider_id=' + _bookingProviderId + '&date=' + dateStr).then(({ data }) => {
+        const booked = Array.isArray(data) ? data.map(a => a.time) : [];
+        timeSelect.innerHTML = '<option value="">请选择时间</option>';
+        let h = Math.floor(startMinutes / 60);
+        let m = startMinutes % 60;
+        let hasSlots = false;
+        while (h * 60 + m < endMinutes) {
+            const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+            if (!booked.includes(time)) {
+                timeSelect.innerHTML += `<option value="${time}">${time}</option>`;
+                hasSlots = true;
+            }
+            m += 30;
+            if (m >= 60) { h++; m -= 60; }
+        }
+        if (!hasSlots) {
+            timeSelect.innerHTML = '<option value="">该日已约满</option>';
+        }
+    }).catch(() => {
+        timeSelect.innerHTML = '<option value="">加载失败</option>';
+    });
 }
 
 function handleBookAppointment(e) {
@@ -759,7 +820,9 @@ function handleBookAppointment(e) {
     
     api('/api/appointments', { method: 'POST', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
         if (status === 200) { closeModal('appointmentModal'); showToast('预约成功！等待服务商确认', 'success'); }
-        else { errorEl.textContent = resp.error || '预约失败'; }
+        else { errorEl.textContent = resp.error || '预约失败(状态码:' + status + ')'; }
+    }).catch(err => {
+        errorEl.textContent = '网络错误: ' + (err.message || '未知错误');
     });
 }
 
@@ -1015,111 +1078,128 @@ function handleProviderRegister(e) {
 }
 
 // ==================== Provider Dashboard ====================
-function loadProviderDashboard() {
+async function loadProviderDashboard() {
     if (!currentUser || currentUser.role !== 'provider') { showToast('请先注册为服务商', 'warning'); return; }
     const container = $('providerDashboardContent');
-    api('/api/auth/profile').then(({ data }) => {
-        if (data.provider) {
-            currentProvider = data.provider;
-            const p = data.provider;
-            api('/api/appointments').then(({ data: apptData }) => {
-                const appointments = apptData.appointments || [];
-                const pending = appointments.filter(a => a.status === 'pending').length;
-                const confirmed = appointments.filter(a => a.status === 'confirmed').length;
-                const completed = appointments.filter(a => a.status === 'completed').length;
-                api('/api/services').then(({ data: svcData }) => {
-                    const myServices = (svcData.services || []).filter(s => s.provider_id === p.id);
-                    container.innerHTML = `
-                        <div class="provider-dashboard">
-                            <div class="dashboard-stats">
-                                <div class="dashboard-stat"><div class="stat-value">${myServices.length}</div><div class="stat-label">我的服务</div></div>
-                                <div class="dashboard-stat"><div class="stat-value">${pending}</div><div class="stat-label">待确认</div></div>
-                                <div class="dashboard-stat"><div class="stat-value">${confirmed}</div><div class="stat-label">已确认</div></div>
-                                <div class="dashboard-stat"><div class="stat-value">${completed}</div><div class="stat-label">已完成</div></div>
-                            </div>
-                            <div class="dashboard-tabs">
-                                <button class="dashboard-tab active" onclick="switchDashboardTab('services', this)">我的服务</button>
-                                <button class="dashboard-tab" onclick="switchDashboardTab('appointments', this)">预约管理</button>
-                                <button class="dashboard-tab" onclick="switchDashboardTab('coupons', this)">优惠券管理</button>
-                                <button class="dashboard-tab" onclick="switchDashboardTab('info', this)">服务商信息</button>
-                            </div>
-                            <div id="dashboardTabContent">
-                                <div id="tab-services">
-                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                                        <h3>我的服务</h3>
-                                        <button class="btn btn-primary btn-sm" onclick="openAddServiceModal()">发布新服务</button>
-                                    </div>
-                                    <div class="services-grid">
-                                        ${myServices.length > 0 ? myServices.map(s => `
-                                            <div class="service-card">
-                                                <div class="service-card-image ${getCategoryClass(s.category)}">
-                                                    <span class="icon-text">${getCategoryIcon(s.category)}</span>
-                                                </div>
-                                                <div class="service-card-body">
-                                                    <h3>${escHtml(s.name)}</h3>
-                                                    <p class="service-desc">${escHtml(s.description).substring(0, 60)}</p>
-                                                    <div class="service-card-meta">
-                                                        <span class="service-price">${s.price > 0 ? '¥' + s.price : '免费'}</span>
-                                                        <span class="service-duration">${s.duration}分钟</span>
-                                                    </div>
-                                                    <div style="display:flex;gap:8px;margin-top:12px;">
-                                                        <button class="btn btn-outline btn-sm" style="color:var(--orange);border-color:var(--orange);" onclick="editService(${s.id}, '${escHtml(s.name)}', '${escHtml(s.category)}', '${escHtml(s.description)}', ${s.price}, ${s.duration})">编辑</button>
-                                                        <button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="deleteService(${s.id})">删除</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        `).join('') : '<div class="empty-state"><p>还没有发布服务</p></div>'}
-                                    </div>
-                                </div>
-                                <div id="tab-appointments" style="display:none;">
-                                    ${appointments.length > 0 ? appointments.map(a => `
-                                        <div class="appointment-card">
-                                            <div class="appointment-header">
-                                                <span class="appointment-title">${escHtml(a.service_name)} - ${escHtml(a.user_name)}</span>
-                                                <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
-                                            </div>
-                                            <div class="appointment-info"><span>📅 ${a.appointment_date} ${a.appointment_time}</span><span>💰 ¥${a.service_price}</span></div>
-                                            ${a.notes ? `<p style="color:var(--mid-gray);">备注: ${escHtml(a.notes)}</p>` : ''}
-                                            <div class="appointment-actions">
-                                                ${a.status === 'pending' ? `<button class="btn btn-primary btn-sm" style="background:var(--blue);" onclick="confirmAppointment(${a.id})">确认</button>` : ''}
-                                                ${a.status === 'confirmed' ? `<button class="btn btn-primary btn-sm" style="background:var(--green);" onclick="completeAppointment(${a.id})">完成</button>` : ''}
-                                                ${a.status !== 'cancelled' && a.status !== 'completed' ? `<button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="cancelAppointment(${a.id})">取消</button>` : ''}
-                                            </div>
-                                        </div>
-                                    `).join('') : '<div class="empty-state"><p>暂无预约</p></div>'}
-                                </div>
-                                <div id="tab-coupons" style="display:none;">
-                                    <div id="couponsTabContent"></div>
-                                </div>
-                                <div id="tab-info" style="display:none;">
-                                    <div class="profile-card">
-                                        <form onsubmit="updateProviderInfo(event)">
-                                            <div class="form-group"><label>服务商名称</label><input type="text" id="dashProvName" value="${escHtml(p.name)}" required></div>
-                                            <div class="form-group"><label>分类</label><select id="dashProvCategory">${['医疗','美容','健身','教育','家政','法律'].map(c => `<option value="${c}" ${p.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
-                                            <div class="form-group"><label>简介</label><textarea id="dashProvDesc" rows="3">${escHtml(p.description)}</textarea></div>
-                                            <div class="form-group"><label>地址</label><input type="text" id="dashProvAddr" value="${escHtml(p.address)}"></div>
-                                            <div class="form-group"><label>电话</label><input type="tel" id="dashProvPhone" value="${escHtml(p.phone)}"></div>
-                                            <div class="form-group"><label>营业时间</label>
-                                                <div style="display:grid;grid-template-columns:80px 1fr;gap:8px 12px;align-items:center;">
-                                                    ${['周一','周二','周三','周四','周五','周六','周日'].map(d => {
-                                                        const hours = p.business_hours ? (JSON.parse(p.business_hours)[d] || '') : '';
-                                                        return `<span style="color:var(--mid-gray);font-size:0.9rem;">${d}</span><input type="text" class="biz-hour-input" data-day="${d}" value="${hours}" placeholder="例: 09:00-18:00" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">`;
-                                                    }).join('')}
-                                                </div>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">保存</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-            });
-        } else {
+    try {
+        const { data: profile } = await api('/api/auth/profile');
+        if (!profile.provider) {
             container.innerHTML = `<div class="empty-state" style="padding:80px 24px;"><div class="empty-icon">🏠</div><h3>您还没有注册为服务商</h3><p style="margin-bottom:20px;">注册成为服务商，发布您的服务</p><button class="btn btn-primary" style="background:var(--orange);" onclick="showModal('providerRegisterModal')">成为服务商</button></div>`;
+            return;
         }
-    });
+        currentProvider = profile.provider;
+        const p = profile.provider;
+        const { data: apptArr } = await api('/api/appointments/my');
+        const appointments = Array.isArray(apptArr) ? apptArr : [];
+        const pending = appointments.filter(a => a.status === 'pending').length;
+        const confirmed = appointments.filter(a => a.status === 'confirmed').length;
+        const completed = appointments.filter(a => a.status === 'completed').length;
+        const { data: svcData } = await api('/api/services');
+        const allServices = Array.isArray(svcData) ? svcData : (svcData.services || []);
+        const myServices = allServices.filter(s => s.provider_id === p.id);
+        container.innerHTML = `
+            <div class="provider-dashboard">
+                <div class="dashboard-stats">
+                    <div class="dashboard-stat"><div class="stat-value">${myServices.length}</div><div class="stat-label">我的服务</div></div>
+                    <div class="dashboard-stat"><div class="stat-value">${pending}</div><div class="stat-label">待确认</div></div>
+                    <div class="dashboard-stat"><div class="stat-value">${confirmed}</div><div class="stat-label">已确认</div></div>
+                    <div class="dashboard-stat"><div class="stat-value">${completed}</div><div class="stat-label">已完成</div></div>
+                </div>
+                <div class="dashboard-tabs">
+                    <button class="dashboard-tab active" onclick="switchDashboardTab('services', this)">我的服务</button>
+                    <button class="dashboard-tab" onclick="switchDashboardTab('appointments', this)">预约管理</button>
+                    <button class="dashboard-tab" onclick="switchDashboardTab('coupons', this)">优惠券管理</button>
+                    <button class="dashboard-tab" onclick="switchDashboardTab('stats', this)">数据统计</button>
+                    <button class="dashboard-tab" onclick="switchDashboardTab('info', this)">服务商信息</button>
+                </div>
+                <div id="dashboardTabContent">
+                    <div id="tab-services">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                            <h3>我的服务</h3>
+                            <button class="btn btn-primary btn-sm" onclick="openAddServiceModal()">发布新服务</button>
+                        </div>
+                        <div class="services-grid">
+                            ${myServices.length > 0 ? myServices.map(s => `
+                                <div class="service-card">
+                                    <div class="service-card-image ${getCategoryClass(s.category)}">
+                                        <span class="icon-text">${getCategoryIcon(s.category)}</span>
+                                    </div>
+                                    <div class="service-card-body">
+                                        <h3>${escHtml(s.name)}</h3>
+                                        <p class="service-desc">${escHtml(s.description).substring(0, 60)}</p>
+                                        <div class="service-card-meta">
+                                            <span class="service-price">${s.price > 0 ? '¥' + s.price : '免费'}</span>
+                                            <span class="service-duration">${s.duration}分钟</span>
+                                        </div>
+                                        <div style="display:flex;gap:8px;margin-top:12px;">
+                                            <button class="btn btn-outline btn-sm" style="color:var(--orange);border-color:var(--orange);" onclick="editService(${s.id}, '${escHtml(s.name)}', '${escHtml(s.category)}', '${escHtml(s.description)}', ${s.price}, ${s.duration})">编辑</button>
+                                            <button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="deleteService(${s.id})">删除</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('') : '<div class="empty-state"><p>还没有发布服务</p></div>'}
+                        </div>
+                    </div>
+                    <div id="tab-appointments" style="display:none;">
+                        ${appointments.length > 0 ? appointments.map(a => `
+                            <div class="appointment-card">
+                                <div class="appointment-header">
+                                    <span class="appointment-title">${escHtml(a.service_name)} - ${escHtml(a.user_name)}</span>
+                                    <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                                </div>
+                                <div class="appointment-info"><span>📅 ${a.appointment_date} ${a.appointment_time}</span><span>💰 ¥${a.service_price}</span></div>
+                                ${a.notes ? `<p style="color:var(--mid-gray);">备注: ${escHtml(a.notes)}</p>` : ''}
+                                <div class="appointment-actions">
+                                    ${a.status === 'pending' ? `<button class="btn btn-primary btn-sm" style="background:var(--blue);" onclick="confirmAppointment(${a.id})">确认</button>` : ''}
+                                    ${a.status === 'confirmed' ? `<button class="btn btn-primary btn-sm" style="background:var(--green);" onclick="completeAppointment(${a.id})">完成</button>` : ''}
+                                    ${a.status !== 'cancelled' && a.status !== 'completed' ? `<button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="cancelAppointment(${a.id})">取消</button>` : ''}
+                                </div>
+                            </div>
+                        `).join('') : '<div class="empty-state"><p>暂无预约</p></div>'}
+                    </div>
+                    <div id="tab-coupons" style="display:none;">
+                        <div id="couponsTabContent"></div>
+                    </div>
+                    <div id="tab-info" style="display:none;">
+                        <div class="profile-card">
+                            <form onsubmit="updateProviderInfo(event)">
+                                <div class="form-group"><label>服务商名称</label><input type="text" id="dashProvName" value="${escHtml(p.name)}" required></div>
+                                <div class="form-group"><label>分类</label><select id="dashProvCategory">${['医疗','美容','健身','教育','家政','法律'].map(c => `<option value="${c}" ${p.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+                                <div class="form-group"><label>简介</label><textarea id="dashProvDesc" rows="3">${escHtml(p.description)}</textarea></div>
+                                <div class="form-group"><label>地址</label><input type="text" id="dashProvAddr" value="${escHtml(p.address)}"></div>
+                                <div class="form-group"><label>电话</label><input type="tel" id="dashProvPhone" value="${escHtml(p.phone)}"></div>
+                                <div class="form-group"><label>营业时间</label>
+                                    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px 12px;align-items:center;">
+                                        ${['周一','周二','周三','周四','周五','周六','周日'].map(d => {
+                                            const hours = p.business_hours ? (JSON.parse(p.business_hours)[d] || '') : '';
+                                            return `<span style="color:var(--mid-gray);font-size:0.9rem;">${d}</span><input type="text" class="biz-hour-input" data-day="${d}" value="${hours}" placeholder="例: 09:00-18:00" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">`;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">保存</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div id="tab-stats" style="display:none;">
+                        <div class="profile-card">
+                            <h3 style="margin-bottom:16px;">数据统计</h3>
+                            <div style="display:flex;gap:12px;margin-bottom:16px;">
+                                <select id="dashStatsPeriod" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;">
+                                    <option value="day">按天</option>
+                                    <option value="month" selected>按月</option>
+                                    <option value="year">按年</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" onclick="loadProviderStatsTab()">查询</button>
+                            </div>
+                            <div id="dashStatsTable"><p style="color:var(--mid-gray);text-align:center;padding:20px;">点击查询查看统计数据</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state" style="padding:80px 24px;"><p style="color:#EF4444;">加载失败: ${escHtml(e.message)}</p><button class="btn btn-primary" style="margin-top:16px;" onclick="loadProviderDashboard()">重试</button></div>`;
+    }
 }
 
 function switchDashboardTab(tab, btn) {
@@ -1129,7 +1209,9 @@ function switchDashboardTab(tab, btn) {
     document.getElementById('tab-appointments').style.display = tab === 'appointments' ? 'block' : 'none';
     document.getElementById('tab-coupons').style.display = tab === 'coupons' ? 'block' : 'none';
     document.getElementById('tab-info').style.display = tab === 'info' ? 'block' : 'none';
+    document.getElementById('tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
     if (tab === 'coupons') loadProviderCoupons();
+    if (tab === 'stats') loadProviderStatsTab();
 }
 
 function updateProviderInfo(e) {
@@ -1149,6 +1231,25 @@ function updateProviderInfo(e) {
     api('/api/providers/' + currentProvider.id, { method: 'PUT', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
         if (status === 200) { currentProvider = resp.provider; localStorage.setItem('provider', JSON.stringify(resp.provider)); showToast('信息更新成功！', 'success'); }
         else { showToast(resp.error || '更新失败', 'error'); }
+    });
+}
+
+function loadProviderStatsTab() {
+    const period = $('dashStatsPeriod')?.value || 'month';
+    const container = $('dashStatsTable');
+    if (!container || !currentProvider) return;
+    container.innerHTML = '<div class="loading">加载中</div>';
+    api('/api/stats/provider-time?provider_id=' + currentProvider.id + '&period=' + period).then(({ data }) => {
+        const items = data.data || [];
+        if (items.length === 0) {
+            container.innerHTML = '<p style="color:var(--mid-gray);text-align:center;padding:20px;">暂无数据</p>';
+            return;
+        }
+        container.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="background:var(--light-gray);"><th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">时段</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">预约数</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">收入</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">平均评分</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">评价数</th></tr></thead><tbody>' +
+            items.map(i => '<tr><td style="padding:10px 12px;border-bottom:1px solid var(--border);">' + escHtml(i.period) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.appointment_count + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">¥' + (i.revenue || 0).toFixed(2) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + (i.avg_rating || 0).toFixed(1) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.review_count + '</td></tr>').join('') +
+        '</tbody></table>';
+    }).catch(() => {
+        container.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;">加载失败</p>';
     });
 }
 
@@ -1385,14 +1486,15 @@ function loadProviderCoupons() {
     container.innerHTML = '<div class="loading">加载中</div>';
     
     api('/api/coupons/provider').then(({ data }) => {
-        if (data.coupons && data.coupons.length > 0) {
+        const coupons = Array.isArray(data) ? data : (data.coupons || []);
+        if (coupons.length > 0) {
             container.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                     <h3>我的优惠券</h3>
                     <button class="btn btn-primary btn-sm" onclick="openAddCouponModal()">创建优惠券</button>
                 </div>
                 <div class="coupons-grid">
-                    ${data.coupons.map(c => `
+                    ${coupons.map(c => `
                         <div class="coupon-card">
                             <div class="coupon-left">
                                 <span class="coupon-amount">${c.coupon_type === 'fixed' ? '¥' + c.discount_amount : c.discount_percent + '%'}</span>

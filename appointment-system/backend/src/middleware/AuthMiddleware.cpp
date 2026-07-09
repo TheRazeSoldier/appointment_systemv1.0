@@ -1,5 +1,6 @@
 #include "AuthMiddleware.h"
 #include "../../include/json.hpp"
+#include "../services/DatabaseService.h"
 
 using json = nlohmann::json;
 
@@ -25,6 +26,13 @@ bool AuthMiddleware::requireAuth(const httplib::Request& req, httplib::Response&
     if (!authUser.authenticated) {
         res.status = 401;
         res.set_content(json{{"error", "未授权"}}.dump(), "application/json");
+        return false;
+    }
+    auto& db = DatabaseService::getInstance();
+    auto user = db.getUserById(authUser.userId);
+    if (user.id == 0) {
+        res.status = 401;
+        res.set_content(json{{"error", "用户不存在，请重新登录"}}.dump(), "application/json");
         return false;
     }
     return true;
