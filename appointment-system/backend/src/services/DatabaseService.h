@@ -52,6 +52,7 @@ public:
     std::vector<models::Appointment> getAppointmentsByProvider(int providerId);
     bool updateAppointmentStatus(int id, const std::string& status);
     bool cancelAppointment(int id);
+    bool updatePaymentStatus(int id, const std::string& paymentStatus, const std::string& tradeNo);
     std::vector<models::Appointment> getAppointmentsByDate(int providerId, const std::string& date);
 
     // Reviews

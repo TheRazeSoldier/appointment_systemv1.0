@@ -1,7 +1,9 @@
 #include "AppointmentController.h"
 #include "../../include/json.hpp"
+#include "../../include/httplib.h"
 #include "../services/DatabaseService.h"
 #include "../middleware/AuthMiddleware.h"
+#include <ctime>
 
 using json = nlohmann::json;
 
@@ -84,7 +86,9 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
                 {"appointment_time", a.appointment_time},
                 {"status", a.status},
                 {"notes", a.notes},
-                {"created_at", a.created_at}
+                {"created_at", a.created_at},
+                {"payment_status", a.payment_status},
+                {"trade_no", a.trade_no}
             });
         }
         res.set_content(json{{"appointments", result}}.dump(), "application/json");
@@ -125,7 +129,9 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
                 {"appointment_time", a.appointment_time},
                 {"status", a.status},
                 {"notes", a.notes},
-                {"created_at", a.created_at}
+                {"created_at", a.created_at},
+                {"payment_status", a.payment_status},
+                {"trade_no", a.trade_no}
             });
         }
         res.set_content(json{{"appointments", result}}.dump(), "application/json");
@@ -161,7 +167,9 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
             {"appointment_time", appt.appointment_time},
             {"status", appt.status},
             {"notes", appt.notes},
-            {"created_at", appt.created_at}
+            {"created_at", appt.created_at},
+            {"payment_status", appt.payment_status},
+            {"trade_no", appt.trade_no}
         }.dump(), "application/json");
     });
 
@@ -296,5 +304,63 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
             });
         }
         res.set_content(result.dump(), "application/json");
+    });
+
+    svr.Post("/api/payments/create", [](const httplib::Request& req, httplib::Response& res) {
+        AuthUser authUser;
+        if (!AuthMiddleware::requireAuth(req, res, authUser)) return;
+        
+        auto body = json::parse(req.body);
+        int apptId = body["appointment_id"];
+        
+        auto& db = DatabaseService::getInstance();
+        auto appt = db.getAppointmentById(apptId);
+        if (appt.id == 0 || appt.user_id != authUser.userId) {
+            res.status = 403;
+            res.set_content(json{{"error", "无权操作"}}.dump(), "application/json");
+            return;
+        }
+        
+        auto service = db.getServiceById(appt.service_id);
+        
+        httplib::Client cli("127.0.0.1", 3000);
+        auto gwRes = cli.Post("/gateway/pay",
+            {{"Content-Type", "application/json"}},
+            json{{"out_trade_no", std::to_string(apptId) + "_" + std::to_string(time(nullptr))},
+                 {"subject", service.name},
+                 {"total_amount", std::to_string(service.price)},
+                 {"return_url", "http://localhost:8081/api/payments/return"},
+                 {"notify_url", "http://localhost:8081/api/payments/notify"}}.dump(),
+            "application/json");
+        
+        if (gwRes && gwRes->status == 200) {
+            auto body = json::parse(gwRes->body);
+            res.set_content(body.dump(), "application/json");
+        } else {
+            res.status = 500;
+            res.set_content(json{{"error", "支付网关连接失败"}}.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/payments/notify", [](const httplib::Request& req, httplib::Response& res) {
+        auto body = json::parse(req.body);
+        std::string outTradeNo = body.contains("out_trade_no") ? body["out_trade_no"] : "";
+        std::string tradeStatus = body.contains("trade_status") ? body["trade_status"] : "";
+        
+        if (tradeStatus == "TRADE_SUCCESS") {
+            int apptId = std::stoi(outTradeNo.substr(0, outTradeNo.find('_')));
+            DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
+        }
+        res.set_content("success", "text/plain");
+    });
+
+    svr.Post("/api/payments/return", [](const httplib::Request& req, httplib::Response& res) {
+        std::string outTradeNo = req.has_param("out_trade_no") ? req.get_param_value("out_trade_no") : "";
+        std::string tradeStatus = req.has_param("trade_status") ? req.get_param_value("trade_status") : "";
+        if (tradeStatus == "TRADE_SUCCESS" && !outTradeNo.empty()) {
+            int apptId = std::stoi(outTradeNo.substr(0, outTradeNo.find('_')));
+            DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
+        }
+        res.set_redirect("http://localhost:8081/#myAppointments", 302);
     });
 }

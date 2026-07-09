@@ -829,6 +829,7 @@ function loadMyAppointments() {
                     <div class="appointment-header">
                         <span class="appointment-title">${escHtml(a.service_name)}</span>
                         <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                        <span class="status-badge ${a.payment_status === 'paid' ? 'status-completed' : 'status-pending'}" style="font-size:0.75rem;margin-left:4px;">${a.payment_status === 'paid' ? '已支付' : a.payment_status === 'refunded' ? '已退款' : '未支付'}</span>
                     </div>
                     <div class="appointment-info">
                         <span>📅 ${a.appointment_date} ${a.appointment_time}</span>
@@ -838,6 +839,7 @@ function loadMyAppointments() {
                     </div>
                     ${a.notes ? `<p style="color:var(--mid-gray);margin-bottom:8px;">备注: ${escHtml(a.notes)}</p>` : ''}
                     <div class="appointment-actions">
+                        ${a.payment_status === 'unpaid' && currentUser.role === 'user' ? `<button class="btn btn-primary btn-sm" style="background:var(--orange);" onclick="payAppointment(${a.id})">去支付</button>` : ''}
                         ${a.status === 'pending' && currentUser.role === 'provider' ? `<button class="btn btn-primary btn-sm" style="background:var(--blue);" onclick="confirmAppointment(${a.id})">确认预约</button>` : ''}
                         ${a.status === 'confirmed' && currentUser.role === 'provider' ? `<button class="btn btn-primary btn-sm" style="background:var(--green);" onclick="completeAppointment(${a.id})">完成服务</button>` : ''}
                         ${(a.status === 'pending' || a.status === 'confirmed') ? `<button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="cancelAppointment(${a.id})">取消预约</button>` : ''}
@@ -856,6 +858,22 @@ function cancelAppointment(id) {
     api('/api/appointments/' + id + '/cancel', { method: 'POST' }).then(({ status, data }) => {
         if (status === 200) { showToast('预约已取消', 'success'); loadMyAppointments(); }
         else { showToast(data.error || '取消失败', 'error'); }
+    });
+}
+
+function payAppointment(id) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px;text-align:center;max-width:400px;"><div class="loading">加载中</div></div>';
+    document.body.appendChild(overlay);
+    
+    api('/api/payments/create', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }).then(({ status, data }) => {
+        if (status === 200 && data.paymentHtml) {
+            overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;">' + data.paymentHtml + '</div><button onclick="this.parentElement.remove()" style="position:fixed;top:20px;right:20px;background:#fff;border:none;font-size:2rem;cursor:pointer;width:40px;height:40px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10000;">&times;</button>';
+        } else {
+            overlay.remove();
+            showToast(data.error || '支付创建失败', 'error');
+        }
     });
 }
 

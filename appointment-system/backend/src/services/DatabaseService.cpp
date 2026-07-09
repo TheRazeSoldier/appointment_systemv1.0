@@ -53,6 +53,9 @@ bool DatabaseService::migrateDatabase() {
     
     sqlite3_exec(db_, "ALTER TABLE services ADD COLUMN IF NOT EXISTS image TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
     
+    sqlite3_exec(db_, "ALTER TABLE appointments ADD COLUMN payment_status TEXT DEFAULT 'unpaid';", nullptr, nullptr, &errMsg);
+    sqlite3_exec(db_, "ALTER TABLE appointments ADD COLUMN trade_no TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
+    
     auto existing = getUserByUsername("admin");
     if (existing.id == 0) {
         models::User adminUser;
@@ -185,7 +188,9 @@ bool DatabaseService::createTables() {
             appointment_time TEXT NOT NULL,
             status TEXT DEFAULT 'pending',
             notes TEXT DEFAULT '',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            payment_status TEXT DEFAULT 'unpaid',
+            trade_no TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS reviews (
@@ -799,7 +804,7 @@ bool DatabaseService::deleteService(int id) {
 
 int DatabaseService::createAppointment(const models::Appointment& appt) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const char* sql = "INSERT INTO appointments (user_id, service_id, provider_id, appointment_date, appointment_time, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?);";
+    const char* sql = "INSERT INTO appointments (user_id, service_id, provider_id, appointment_date, appointment_time, status, notes, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, 'unpaid');";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return -1;
     
@@ -837,6 +842,8 @@ models::Appointment DatabaseService::getAppointmentById(int id) {
         a.status = sqlite3_column_text(stmt, 6) ? (const char*)sqlite3_column_text(stmt, 6) : "";
         a.notes = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
         a.created_at = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        a.payment_status = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "unpaid";
+        a.trade_no = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
     }
     sqlite3_finalize(stmt);
     return a;
@@ -861,6 +868,8 @@ std::vector<models::Appointment> DatabaseService::getAppointmentsByUser(int user
         a.status = sqlite3_column_text(stmt, 6) ? (const char*)sqlite3_column_text(stmt, 6) : "";
         a.notes = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
         a.created_at = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        a.payment_status = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "unpaid";
+        a.trade_no = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         appointments.push_back(a);
     }
     sqlite3_finalize(stmt);
@@ -886,6 +895,8 @@ std::vector<models::Appointment> DatabaseService::getAppointmentsByProvider(int 
         a.status = sqlite3_column_text(stmt, 6) ? (const char*)sqlite3_column_text(stmt, 6) : "";
         a.notes = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
         a.created_at = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        a.payment_status = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "unpaid";
+        a.trade_no = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         appointments.push_back(a);
     }
     sqlite3_finalize(stmt);
@@ -910,6 +921,19 @@ bool DatabaseService::cancelAppointment(int id) {
     return updateAppointmentStatus(id, "cancelled");
 }
 
+bool DatabaseService::updatePaymentStatus(int id, const std::string& paymentStatus, const std::string& tradeNo) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const char* sql = "UPDATE appointments SET payment_status=?, trade_no=? WHERE id=?;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
+    sqlite3_bind_text(stmt, 1, paymentStatus.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, tradeNo.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 3, id);
+    bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
 std::vector<models::Appointment> DatabaseService::getAppointmentsByDate(int providerId, const std::string& date) {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<models::Appointment> appointments;
@@ -930,6 +954,8 @@ std::vector<models::Appointment> DatabaseService::getAppointmentsByDate(int prov
         a.status = sqlite3_column_text(stmt, 6) ? (const char*)sqlite3_column_text(stmt, 6) : "";
         a.notes = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
         a.created_at = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        a.payment_status = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "unpaid";
+        a.trade_no = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         appointments.push_back(a);
     }
     sqlite3_finalize(stmt);

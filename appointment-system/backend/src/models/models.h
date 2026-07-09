@@ -58,6 +58,8 @@ struct Appointment {
     std::string status;
     std::string notes;
     std::string created_at;
+    std::string payment_status;
+    std::string trade_no;
 };
 
 struct Review {
