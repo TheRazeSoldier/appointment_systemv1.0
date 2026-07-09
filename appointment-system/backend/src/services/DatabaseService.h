@@ -25,6 +25,7 @@ public:
     models::Provider getProviderByUserId(int userId);
     std::vector<models::Provider> getAllProviders();
     std::vector<models::Provider> getProvidersByCategory(const std::string& category);
+    std::vector<models::Provider> getProvidersByBusinessHours(const std::string& dayOfWeek);
     std::vector<models::Provider> getProvidersByAuditStatus(const std::string& auditStatus);
     std::vector<models::Provider> getProvidersByUserId(int userId);
     std::vector<models::Provider> getAllProviderApplications();
@@ -86,6 +87,8 @@ public:
     std::vector<models::DailyStats> getDailyStats(const std::string& startDate, const std::string& endDate);
     std::vector<models::CategoryStats> getCategoryStats();
     std::vector<models::ProviderStats> getProviderStats();
+    std::vector<models::ProviderTimeStats> getProviderTimeStats(int providerId, const std::string& period); // day, month, year
+
     std::vector<models::AppointmentStats> getAppointmentStatusStats();
 
 private:

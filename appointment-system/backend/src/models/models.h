@@ -31,6 +31,7 @@ struct Provider {
     std::string audit_comment;
     std::string license_number;
     std::string license_image;
+    std::string business_hours;
     std::string created_at;
 };
 
@@ -119,6 +120,14 @@ struct AppointmentStats {
     std::string status;
     int count;
     double percentage;
+};
+
+struct ProviderTimeStats {
+    std::string period; // date or month or year
+    int appointment_count;
+    double revenue;
+    double avg_rating;
+    int review_count;
 };
 
 struct TrendStats {

@@ -153,4 +153,30 @@ void StatsController::registerRoutes(httplib::Server& svr) {
             {"appointment_status", appointmentStatus}
         }.dump(), "application/json");
     });
+
+    svr.Get("/api/stats/provider-time", [](const httplib::Request& req, httplib::Response& res) {
+        int providerId = req.has_param("provider_id") ? std::stoi(req.get_param_value("provider_id")) : 0;
+        std::string period = req.has_param("period") ? req.get_param_value("period") : "month";
+        
+        if (providerId <= 0) {
+            res.status = 400;
+            res.set_content(json{{"error", "请指定服务商ID"}}.dump(), "application/json");
+            return;
+        }
+        
+        auto& db = DatabaseService::getInstance();
+        auto data = db.getProviderTimeStats(providerId, period);
+        
+        json result = json::array();
+        for (const auto& d : data) {
+            result.push_back({
+                {"period", d.period},
+                {"appointment_count", d.appointment_count},
+                {"revenue", d.revenue},
+                {"avg_rating", d.avg_rating},
+                {"review_count", d.review_count}
+            });
+        }
+        res.set_content(json{{"data", result}}.dump(), "application/json");
+    });
 }

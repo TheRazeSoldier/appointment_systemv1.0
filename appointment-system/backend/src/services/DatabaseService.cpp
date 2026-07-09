@@ -49,6 +49,7 @@ bool DatabaseService::migrateDatabase() {
     sqlite3_exec(db_, "ALTER TABLE providers ADD COLUMN IF NOT EXISTS audit_comment TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
     sqlite3_exec(db_, "ALTER TABLE providers ADD COLUMN IF NOT EXISTS license_number TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
     sqlite3_exec(db_, "ALTER TABLE providers ADD COLUMN IF NOT EXISTS license_image TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
+    sqlite3_exec(db_, "ALTER TABLE providers ADD COLUMN IF NOT EXISTS business_hours TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
     
     sqlite3_exec(db_, "ALTER TABLE services ADD COLUMN IF NOT EXISTS image TEXT DEFAULT '';", nullptr, nullptr, &errMsg);
     
@@ -427,7 +428,7 @@ std::vector<models::User> DatabaseService::getAllUsers() {
 
 int DatabaseService::createProvider(const models::Provider& provider) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const char* sql = "INSERT INTO providers (user_id, name, description, address, phone, category, avatar, status, audit_status, license_number, license_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    const char* sql = "INSERT INTO providers (user_id, name, description, address, phone, category, avatar, status, audit_status, license_number, license_image, business_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return -1;
     
@@ -444,6 +445,7 @@ int DatabaseService::createProvider(const models::Provider& provider) {
     sqlite3_bind_text(stmt, 9, auditStatus.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 10, provider.license_number.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 11, provider.license_image.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 12, provider.business_hours.c_str(), -1, SQLITE_TRANSIENT);
     
     int result = -1;
     if (sqlite3_step(stmt) == SQLITE_DONE) {
@@ -475,6 +477,7 @@ models::Provider DatabaseService::getProviderById(int id) {
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
     }
     sqlite3_finalize(stmt);
@@ -503,6 +506,7 @@ models::Provider DatabaseService::getProviderByUserId(int userId) {
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
     }
     sqlite3_finalize(stmt);
@@ -531,6 +535,7 @@ std::vector<models::Provider> DatabaseService::getAllProviders() {
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
         providers.push_back(p);
     }
@@ -561,6 +566,38 @@ std::vector<models::Provider> DatabaseService::getProvidersByCategory(const std:
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
+        p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
+        providers.push_back(p);
+    }
+    sqlite3_finalize(stmt);
+    return providers;
+}
+
+std::vector<models::Provider> DatabaseService::getProvidersByBusinessHours(const std::string& dayOfWeek) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<models::Provider> providers;
+    const char* sql = "SELECT * FROM providers WHERE business_hours LIKE ? AND status='active' AND audit_status='approved' ORDER BY created_at DESC;";
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return providers;
+    std::string pattern = "%" + dayOfWeek + "%";
+    sqlite3_bind_text(stmt, 1, pattern.c_str(), -1, SQLITE_TRANSIENT);
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        models::Provider p;
+        p.id = sqlite3_column_int(stmt, 0);
+        p.user_id = sqlite3_column_int(stmt, 1);
+        p.name = (const char*)sqlite3_column_text(stmt, 2);
+        p.description = sqlite3_column_text(stmt, 3) ? (const char*)sqlite3_column_text(stmt, 3) : "";
+        p.address = sqlite3_column_text(stmt, 4) ? (const char*)sqlite3_column_text(stmt, 4) : "";
+        p.phone = sqlite3_column_text(stmt, 5) ? (const char*)sqlite3_column_text(stmt, 5) : "";
+        p.category = sqlite3_column_text(stmt, 6) ? (const char*)sqlite3_column_text(stmt, 6) : "";
+        p.avatar = sqlite3_column_text(stmt, 7) ? (const char*)sqlite3_column_text(stmt, 7) : "";
+        p.status = sqlite3_column_text(stmt, 8) ? (const char*)sqlite3_column_text(stmt, 8) : "";
+        p.audit_status = sqlite3_column_text(stmt, 9) ? (const char*)sqlite3_column_text(stmt, 9) : "pending";
+        p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
+        p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
+        p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
         providers.push_back(p);
     }
@@ -570,7 +607,7 @@ std::vector<models::Provider> DatabaseService::getProvidersByCategory(const std:
 
 bool DatabaseService::updateProvider(int id, const models::Provider& provider) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const char* sql = "UPDATE providers SET name=?, description=?, address=?, phone=?, category=?, avatar=?, license_number=?, license_image=? WHERE id=?;";
+    const char* sql = "UPDATE providers SET name=?, description=?, address=?, phone=?, category=?, avatar=?, license_number=?, license_image=?, business_hours=? WHERE id=?;";
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) return false;
     
@@ -582,7 +619,8 @@ bool DatabaseService::updateProvider(int id, const models::Provider& provider) {
     sqlite3_bind_text(stmt, 6, provider.avatar.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 7, provider.license_number.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 8, provider.license_image.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 9, id);
+    sqlite3_bind_text(stmt, 9, provider.business_hours.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 10, id);
     
     bool ok = sqlite3_step(stmt) == SQLITE_DONE;
     sqlite3_finalize(stmt);
@@ -1230,6 +1268,34 @@ std::vector<models::ProviderStats> DatabaseService::getProviderStats() {
     return result;
 }
 
+std::vector<models::ProviderTimeStats> DatabaseService::getProviderTimeStats(int providerId, const std::string& period) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<models::ProviderTimeStats> result;
+    std::string sql;
+    if (period == "day") {
+        sql = "SELECT a.appointment_date as period, COUNT(a.id) as cnt, COALESCE(SUM(s.price),0) as rev, COALESCE(AVG(r.rating),0) as avg_r, COUNT(DISTINCT r.id) as rc FROM appointments a LEFT JOIN services s ON a.service_id=s.id LEFT JOIN reviews r ON r.appointment_id=a.id AND r.provider_id=a.provider_id WHERE a.provider_id = ? AND a.status='completed' GROUP BY a.appointment_date ORDER BY a.appointment_date DESC LIMIT 30;";
+    } else if (period == "month") {
+        sql = "SELECT strftime('%Y-%m', a.appointment_date) as period, COUNT(*) as cnt, COALESCE(SUM(s.price),0) as rev, COALESCE(AVG(r.rating),0) as avg, COUNT(DISTINCT r.id) as rc FROM appointments a LEFT JOIN services s ON a.service_id=s.id LEFT JOIN reviews r ON r.appointment_id=a.id AND a.provider_id=a.provider_id WHERE a.provider_id = ? AND a.status='completed' GROUP BY strftime('%Y-%m', a.appointment_date) ORDER BY period DESC LIMIT 12;";
+    } else {
+        sql = "SELECT strftime('%Y', a.appointment_date) as period, COUNT(*) as cnt, COALESCE(SUM(s.price),0) as rev, COALESCE(AVG(r.rating),0) as avg, COUNT(DISTINCT r.id) as rc FROM appointments a LEFT JOIN services s ON a.service_id=s.id LEFT JOIN reviews r ON r.appointment_id=a.id AND a.provider_id=a.provider_id WHERE a.provider_id = ? AND a.status='completed' GROUP BY strftime('%Y', a.appointment_date) ORDER BY period DESC LIMIT 10;";
+    }
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db_, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, providerId);
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            models::ProviderTimeStats ts;
+            ts.period = (const char*)sqlite3_column_text(stmt, 0);
+            ts.appointment_count = sqlite3_column_int(stmt, 1);
+            ts.revenue = sqlite3_column_double(stmt, 2);
+            ts.avg_rating = sqlite3_column_double(stmt, 3);
+            ts.review_count = sqlite3_column_int(stmt, 4);
+            result.push_back(ts);
+        }
+        sqlite3_finalize(stmt);
+    }
+    return result;
+}
+
 std::vector<models::AppointmentStats> DatabaseService::getAppointmentStatusStats() {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<models::AppointmentStats> result;
@@ -1332,6 +1398,7 @@ std::vector<models::Provider> DatabaseService::getProvidersByUserId(int userId) 
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
         providers.push_back(p);
     }
@@ -1360,6 +1427,7 @@ std::vector<models::Provider> DatabaseService::getAllProviderApplications() {
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
         providers.push_back(p);
     }
@@ -1390,6 +1458,7 @@ std::vector<models::Provider> DatabaseService::getProvidersByAuditStatus(const s
         p.audit_comment = sqlite3_column_text(stmt, 10) ? (const char*)sqlite3_column_text(stmt, 10) : "";
         p.license_number = sqlite3_column_text(stmt, 11) ? (const char*)sqlite3_column_text(stmt, 11) : "";
         p.license_image = sqlite3_column_text(stmt, 12) ? (const char*)sqlite3_column_text(stmt, 12) : "";
+        p.business_hours = sqlite3_column_text(stmt, 14) ? (const char*)sqlite3_column_text(stmt, 14) : "";
         p.created_at = sqlite3_column_text(stmt, 13) ? (const char*)sqlite3_column_text(stmt, 13) : "";
         providers.push_back(p);
     }

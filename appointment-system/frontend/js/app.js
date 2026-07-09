@@ -691,17 +691,20 @@ function loadServiceDetail(serviceId) {
 // ==================== Providers ====================
 function loadProviders() {
     const category = $('providerCategoryFilter')?.value || '';
+    const dayOfWeek = $('providerDayFilter')?.value || '';
     const params = new URLSearchParams();
     if (category) params.append('category', category);
+    if (dayOfWeek) params.append('business_hours', dayOfWeek);
     
     const container = document.getElementById('allProviders');
     if (!container) return;
     container.innerHTML = '<div class="loading">加载中</div>';
     
     api('/api/providers?' + params.toString()).then(({ data }) => {
-        if (data.providers && data.providers.length > 0) {
-            container.innerHTML = data.providers.map(p => `
-                <div class="service-card" onclick="navigate('services');$('serviceCategoryFilter').value='${p.category}';loadServices();">
+        const list = Array.isArray(data) ? data : (data.providers || []);
+        if (list.length > 0) {
+            container.innerHTML = list.map(p => `
+                <div class="service-card" onclick="navigate('providerDetail', ${p.id});">
                     <div class="service-card-image ${getCategoryClass(p.category)}">
                         <span class="icon-text">${p.name.charAt(0)}</span>
                     </div>
@@ -709,7 +712,8 @@ function loadProviders() {
                         <h3>${escHtml(p.name)}</h3>
                         <span class="profile-role">${escHtml(p.category)}</span>
                         <p class="service-desc" style="margin-top:8px;">${escHtml(p.description) || '暂无简介'}</p>
-                        <p style="color:var(--mid-gray);margin-top:8px;">${escHtml(p.address)}</p>
+                        <p style="color:var(--mid-gray);margin-top:8px;">📌 ${escHtml(p.address)}</p>
+                        ${p.business_hours ? `<p style="color:var(--green);margin-top:4px;font-size:0.8rem;">🕐 今日营业</p>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -1095,6 +1099,14 @@ function loadProviderDashboard() {
                                             <div class="form-group"><label>简介</label><textarea id="dashProvDesc" rows="3">${escHtml(p.description)}</textarea></div>
                                             <div class="form-group"><label>地址</label><input type="text" id="dashProvAddr" value="${escHtml(p.address)}"></div>
                                             <div class="form-group"><label>电话</label><input type="tel" id="dashProvPhone" value="${escHtml(p.phone)}"></div>
+                                            <div class="form-group"><label>营业时间</label>
+                                                <div style="display:grid;grid-template-columns:80px 1fr;gap:8px 12px;align-items:center;">
+                                                    ${['周一','周二','周三','周四','周五','周六','周日'].map(d => {
+                                                        const hours = p.business_hours ? (JSON.parse(p.business_hours)[d] || '') : '';
+                                                        return `<span style="color:var(--mid-gray);font-size:0.9rem;">${d}</span><input type="text" class="biz-hour-input" data-day="${d}" value="${hours}" placeholder="例: 09:00-18:00" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;">`;
+                                                    }).join('')}
+                                                </div>
+                                            </div>
                                             <button type="submit" class="btn btn-primary">保存</button>
                                         </form>
                                     </div>
@@ -1122,8 +1134,19 @@ function switchDashboardTab(tab, btn) {
 
 function updateProviderInfo(e) {
     e.preventDefault();
-    const data = { name: $('dashProvName').value.trim(), category: $('dashProvCategory').value, description: $('dashProvDesc').value.trim(), address: $('dashProvAddr').value.trim(), phone: $('dashProvPhone').value.trim() };
-    api('/api/providers', { method: 'PUT', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
+    const bizHours = {};
+    document.querySelectorAll('.biz-hour-input').forEach(inp => {
+        if (inp.value.trim()) bizHours[inp.dataset.day] = inp.value.trim();
+    });
+    const data = {
+        name: $('dashProvName').value.trim(),
+        category: $('dashProvCategory').value,
+        description: $('dashProvDesc').value.trim(),
+        address: $('dashProvAddr').value.trim(),
+        phone: $('dashProvPhone').value.trim(),
+        business_hours: Object.keys(bizHours).length > 0 ? JSON.stringify(bizHours) : ''
+    };
+    api('/api/providers/' + currentProvider.id, { method: 'PUT', body: JSON.stringify(data) }).then(({ status, data: resp }) => {
         if (status === 200) { currentProvider = resp.provider; localStorage.setItem('provider', JSON.stringify(resp.provider)); showToast('信息更新成功！', 'success'); }
         else { showToast(resp.error || '更新失败', 'error'); }
     });
@@ -1529,6 +1552,10 @@ function loadReports() {
         renderProviderRanking(providersRes.data);
         renderStatusDistribution(appointmentsRes.data);
         renderCouponStats(couponsRes.data);
+        const sel = $('providerStatsSelect');
+        if (sel && providersRes.data) {
+            sel.innerHTML = '<option value="">选择服务商</option>' + providersRes.data.map(p => '<option value="' + p.provider_id + '">' + escHtml(p.provider_name) + '</option>').join('');
+        }
         container.style.opacity = '1';
     }).catch(err => {
         container.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><h3>加载失败</h3><p>请稍后重试</p></div>';
@@ -1651,6 +1678,28 @@ function renderCouponStats(couponStats) {
             <div class="stat-label">优惠金额</div>
         </div>
     `;
+}
+
+function loadProviderTimeStats() {
+    const sel = $('providerStatsSelect');
+    const period = $('providerStatsPeriod')?.value || 'month';
+    const providerId = sel?.value;
+    if (!providerId) { showToast('请选择服务商', 'warning'); return; }
+    const container = $('providerTimeStatsTable');
+    if (!container) return;
+    container.innerHTML = '<div class="loading">加载中</div>';
+    api('/api/stats/provider-time?provider_id=' + providerId + '&period=' + period).then(({ data }) => {
+        const items = data.data || [];
+        if (items.length === 0) {
+            container.innerHTML = '<p style="color:var(--mid-gray);text-align:center;padding:20px;">暂无数据</p>';
+            return;
+        }
+        container.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="background:var(--light-gray);"><th style="padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);">时段</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">预约数</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">收入</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">平均评分</th><th style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">评价数</th></tr></thead><tbody>' +
+            items.map(i => '<tr><td style="padding:10px 12px;border-bottom:1px solid var(--border);">' + escHtml(i.period) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.appointment_count + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">¥' + (i.revenue || 0).toFixed(2) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + (i.avg_rating || 0).toFixed(1) + '</td><td style="padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);">' + i.review_count + '</td></tr>').join('') +
+        '</tbody></table>';
+    }).catch(() => {
+        container.innerHTML = '<p style="color:var(--red);text-align:center;padding:20px;">加载失败</p>';
+    });
 }
 
 function claimCoupon(couponId) {

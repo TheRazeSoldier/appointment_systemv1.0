@@ -591,6 +591,16 @@
                         <option value="家政">家政服务</option>
                         <option value="法律">法律咨询</option>
                     </select>
+                    <select id="providerDayFilter" onchange="loadProviders()" style="margin-left:8px;">
+                        <option value="">所有时间</option>
+                        <option value="周一">周一营业</option>
+                        <option value="周二">周二营业</option>
+                        <option value="周三">周三营业</option>
+                        <option value="周四">周四营业</option>
+                        <option value="周五">周五营业</option>
+                        <option value="周六">周六营业</option>
+                        <option value="周日">周日营业</option>
+                    </select>
                 </div>
             </div>
             <div class="providers-grid" id="allProviders">
@@ -732,6 +742,22 @@
                         <h3>优惠券统计</h3>
                         <div class="coupon-stats" id="couponStats"></div>
                     </div>
+                </div>
+
+                <div class="report-panel" style="margin-top:20px;">
+                    <h3>服务商数据明细</h3>
+                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+                        <select id="providerStatsSelect" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;">
+                            <option value="">选择服务商</option>
+                        </select>
+                        <select id="providerStatsPeriod" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem;">
+                            <option value="day">按天</option>
+                            <option value="month" selected>按月</option>
+                            <option value="year">按年</option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" onclick="loadProviderTimeStats()">查询</button>
+                    </div>
+                    <div id="providerTimeStatsTable"><p style="color:var(--mid-gray);text-align:center;padding:20px;">请选择服务商和时间维度</p></div>
                 </div>
             </div>
         </section>

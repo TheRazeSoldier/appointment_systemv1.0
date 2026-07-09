@@ -109,7 +109,8 @@ void AuthController::registerRoutes(httplib::Server& svr) {
                     {"phone", provider.phone},
                     {"category", provider.category},
                     {"audit_status", provider.audit_status},
-                    {"audit_comment", provider.audit_comment}
+                    {"audit_comment", provider.audit_comment},
+                    {"business_hours", provider.business_hours}
                 };
             }
             
@@ -150,6 +151,7 @@ void AuthController::registerRoutes(httplib::Server& svr) {
                     {"category", provider.category},
                     {"audit_status", provider.audit_status},
                     {"audit_comment", provider.audit_comment},
+                    {"business_hours", provider.business_hours},
                     {"created_at", provider.created_at}
                 };
             }

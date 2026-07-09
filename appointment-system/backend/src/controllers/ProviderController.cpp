@@ -9,9 +9,12 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
     svr.Get("/api/providers", [](const httplib::Request& req, httplib::Response& res) {
         auto& db = DatabaseService::getInstance();
         auto category = req.get_param_value("category");
+        auto businessHours = req.get_param_value("business_hours");
         
         std::vector<models::Provider> providers;
-        if (!category.empty()) {
+        if (!businessHours.empty()) {
+            providers = db.getProvidersByBusinessHours(businessHours);
+        } else if (!category.empty()) {
             providers = db.getProvidersByCategory(category);
         } else {
             providers = db.getAllProviders();
@@ -29,7 +32,8 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
                 {"category", p.category},
                 {"avatar", p.avatar},
                 {"status", p.status},
-                {"audit_status", p.audit_status}
+                {"audit_status", p.audit_status},
+                {"business_hours", p.business_hours}
             });
         }
         res.set_content(result.dump(), "application/json");
@@ -56,6 +60,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
                 {"audit_comment", provider.audit_comment},
                 {"license_number", provider.license_number},
                 {"license_image", provider.license_image},
+                {"business_hours", provider.business_hours},
                 {"created_at", provider.created_at}
             }.dump(), "application/json");
         } else {
@@ -88,6 +93,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
         provider.avatar = body.contains("avatar") ? body["avatar"] : "";
         provider.license_number = body.contains("license_number") ? body["license_number"] : "";
         provider.license_image = body.contains("license_image") ? body["license_image"] : "";
+        provider.business_hours = body.contains("business_hours") ? body["business_hours"] : "";
         provider.audit_status = "pending";
         
         int providerId = db.createProvider(provider);
@@ -139,6 +145,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
         provider.avatar = body.contains("avatar") ? body["avatar"] : "";
         provider.license_number = body.contains("license_number") ? body["license_number"] : "";
         provider.license_image = body.contains("license_image") ? body["license_image"] : "";
+        provider.business_hours = body.contains("business_hours") ? body["business_hours"] : "";
         
         if (db.updateProvider(id, provider)) {
             res.set_content(json{{"message", "更新成功"}}.dump(), "application/json");
@@ -167,6 +174,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
                 {"category", p.category},
                 {"audit_status", p.audit_status},
                 {"audit_comment", p.audit_comment},
+                {"business_hours", p.business_hours},
                 {"created_at", p.created_at}
             });
         }
@@ -195,6 +203,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
                 {"license_number", p.license_number},
                 {"license_image", p.license_image},
                 {"audit_status", p.audit_status},
+                {"business_hours", p.business_hours},
                 {"created_at", p.created_at}
             });
         }
@@ -222,6 +231,7 @@ void ProviderController::registerRoutes(httplib::Server& svr) {
                 {"category", p.category},
                 {"audit_status", p.audit_status},
                 {"audit_comment", p.audit_comment},
+                {"business_hours", p.business_hours},
                 {"created_at", p.created_at}
             });
         }
