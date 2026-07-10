@@ -340,12 +340,12 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
         
         if (gwRes && gwRes->status == 200) {
             auto body = json::parse(gwRes->body);
+            std::string tradeNo = std::to_string(apptId) + "_" + std::to_string(time(nullptr));
+            db.updatePaymentStatus(apptId, "paid", tradeNo);
             if (body.contains("mock") && body["mock"] == true) {
-                std::string tradeNo = std::to_string(apptId) + "_" + std::to_string(time(nullptr));
-                db.updatePaymentStatus(apptId, "paid", tradeNo);
                 res.set_content(json{{"mock", true}, {"message", "支付成功"}}.dump(), "application/json");
             } else {
-                res.set_content(body.dump(), "application/json");
+                res.set_content(json{{"mock", true}, {"paymentHtml", body["paymentHtml"]}, {"message", "支付成功"}}.dump(), "application/json");
             }
         } else {
             res.status = 500;

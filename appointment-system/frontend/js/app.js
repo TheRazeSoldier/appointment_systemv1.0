@@ -926,13 +926,14 @@ function payAppointment(id) {
     payWin.document.write('<html><body><div class="loading" style="text-align:center;padding:40px;font-size:1.2rem;">加载中...</div></body></html>');
     
     api('/api/payments/create', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }).then(({ status, data }) => {
-        if (status === 200 && data.mock) {
+        if (status === 200 && data.paymentHtml) {
+            payWin.document.write(data.paymentHtml);
+            payWin.document.close();
+            if (data.mock) { showToast('支付成功！', 'success'); loadMyAppointments(); }
+        } else if (status === 200 && data.mock) {
             payWin.close();
             showToast('支付成功！', 'success');
             loadMyAppointments();
-        } else if (status === 200 && data.paymentHtml) {
-            payWin.document.write(data.paymentHtml);
-            payWin.document.close();
         } else {
             payWin.close();
             showToast(data.error || '支付创建失败', 'error');
