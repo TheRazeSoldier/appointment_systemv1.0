@@ -1942,11 +1942,56 @@ function claimCoupon(couponId) {
 }
 
 function useUserCoupon(userCouponId) {
+    // Find the coupon data from the rendered page
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px;min-width:400px;max-width:500px;"><div class="loading">加载中</div></div>';
+    document.body.appendChild(overlay);
+
+    // Get coupon info from user coupons data
+    api('/api/coupons/user').then(({ data: cd }) => {
+        const uc = cd.user_coupons ? cd.user_coupons.find(c => c.id === userCouponId) : null;
+        if (!uc) { overlay.remove(); showToast('未找到优惠券', 'error'); return; }
+
+        api('/api/services').then(({ data: svcData }) => {
+            const allSvcs = Array.isArray(svcData) ? svcData : (svcData.services || []);
+            const svcs = allSvcs.filter(s => s.provider_id === uc.provider_id);
+
+            overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+                    '<h3 style="margin:0;">使用优惠券</h3>' +
+                    '<button onclick="this.closest(\'div[style]\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>' +
+                '</div>' +
+                '<div style="padding:16px;background:var(--light-gray);border-radius:8px;margin-bottom:16px;">' +
+                    '<div style="font-size:1.3rem;font-weight:700;color:var(--orange);">' +
+                        (uc.coupon_type === 'fixed' ? '¥' + uc.discount_amount : uc.discount_percent + '%') +
+                        (uc.coupon_type === 'fixed' ? ' 满减券' : ' 折扣券') +
+                    '</div>' +
+                    '<div style="font-size:0.85rem;color:var(--mid-gray);margin-top:4px;">' + escHtml(uc.coupon_name) + '</div>' +
+                    '<div style="font-size:0.8rem;color:var(--mid-gray);">' + escHtml(uc.provider_name) + (uc.min_amount > 0 ? ' · 满¥' + uc.min_amount + '可用' : '') + '</div>' +
+                '</div>' +
+                '<h4 style="margin-bottom:12px;">选择服务使用此优惠券</h4>' +
+                (svcs.length > 0 ? svcs.map(s => '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--light-gray);">' +
+                    '<div><div style="font-weight:600;">' + escHtml(s.name) + '</div><div style="font-size:0.8rem;color:var(--mid-gray);">¥' + (s.price || 0).toFixed(2) + ' · ' + s.duration + '分钟</div></div>' +
+                    '<button class="btn btn-primary btn-sm" onclick="confirmUseCoupon(' + userCouponId + ', this)" style="font-size:0.8rem;">使用</button>' +
+                '</div>').join('') : '<p style="color:var(--mid-gray);text-align:center;padding:16px;">该商家暂无可用服务</p>') +
+            '</div>';
+        }).catch(() => { overlay.remove(); showToast('加载服务失败', 'error'); });
+    }).catch(() => { overlay.remove(); showToast('加载优惠券失败', 'error'); });
+}
+
+function confirmUseCoupon(userCouponId, btn) {
+    btn.textContent = '使用中...';
+    btn.disabled = true;
     api('/api/coupons/user/' + userCouponId + '/use', { method: 'POST' }).then(({ status, data }) => {
         if (status === 200) {
+            const overlay = btn.closest('div[style]');
+            if (overlay) overlay.remove();
             showToast('优惠券使用成功！', 'success');
             loadUserCoupons();
         } else {
+            btn.textContent = '使用';
+            btn.disabled = false;
             showToast(data.error || '使用失败', 'error');
         }
     });
