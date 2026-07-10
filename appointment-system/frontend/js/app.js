@@ -425,6 +425,13 @@ function loadDashboard() {
     loadRecommendedServices();
     loadDashHotServices();
     initScrollReveal();
+    if (currentUser && currentUser.role !== 'provider') {
+        if (window.dashPollTimer) clearInterval(window.dashPollTimer);
+        window.dashPollTimer = setInterval(() => {
+            if (currentPage !== 'dashboard') { clearInterval(window.dashPollTimer); return; }
+            loadUnreadCount();
+        }, 15000);
+    }
 }
 
 function loadPromoServices() {
@@ -1139,9 +1146,12 @@ function handleProviderRegister(e) {
 }
 
 // ==================== Provider Dashboard ====================
+let providerPollTimer = null;
+
 async function loadProviderDashboard() {
     if (!currentUser || currentUser.role !== 'provider') { showToast('请先注册为服务商', 'warning'); return; }
     const container = $('providerDashboardContent');
+    if (providerPollTimer) clearInterval(providerPollTimer);
     try {
         const { data: profile } = await api('/api/auth/profile');
         if (!profile.provider) {
@@ -1275,6 +1285,20 @@ async function loadProviderDashboard() {
                 </div>
             </div>
         `;
+        providerPollTimer = setInterval(() => {
+            if (currentPage !== 'providerDashboard') { clearInterval(providerPollTimer); return; }
+            loadUnreadCount();
+            const apptTab = document.getElementById('tab-appointments');
+            if (apptTab && apptTab.style.display !== 'none') {
+                api('/api/appointments/my').then(({ data: apptArr }) => {
+                    const apps = apptArr && apptArr.appointments ? apptArr.appointments : (Array.isArray(apptArr) ? apptArr : []);
+                    if (apps.length > 0) {
+                        const currentCards = apptTab.querySelectorAll('.appointment-card').length;
+                        if (apps.length !== currentCards) reloadCurrentPage();
+                    }
+                }).catch(() => {});
+            }
+        }, 10000);
     } catch (e) {
         container.innerHTML = `<div class="empty-state" style="padding:80px 24px;"><p style="color:#EF4444;">加载失败: ${escHtml(e.message)}</p><button class="btn btn-primary" style="margin-top:16px;" onclick="loadProviderDashboard()">重试</button></div>`;
     }
