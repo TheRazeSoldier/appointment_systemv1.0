@@ -177,6 +177,7 @@ function navigate(page, data) {
 }
 
 function navigateToPage(page, data) {
+    if (page !== 'providerDashboard') toggleNav(true);
     currentPage = page;
     currentPageData = data;
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1156,8 +1157,14 @@ function handleProviderRegister(e) {
 // ==================== Provider Dashboard ====================
 let providerPollTimer = null;
 
+function toggleNav(show) {
+    const nav = document.getElementById('navbar');
+    if (nav) nav.style.display = show ? '' : 'none';
+}
+
 async function loadProviderDashboard() {
     if (!currentUser || currentUser.role !== 'provider') { showToast('请先注册为服务商', 'warning'); return; }
+    toggleNav(false);
     const container = $('providerDashboardContent');
     if (providerPollTimer) clearInterval(providerPollTimer);
     try {
