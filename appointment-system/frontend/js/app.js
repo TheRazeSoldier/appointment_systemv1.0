@@ -170,24 +170,37 @@ function navigateToDefaultPage() {
 }
 
 function navigate(page, data) {
-    // Record history before changing
     if (currentPage && currentPage !== page) {
         navigationHistory.push({ page: currentPage, data: currentPageData });
     }
+    navigateToPage(page, data);
+}
+
+function goBack() {
+    if (navigationHistory.length > 0) {
+        const prev = navigationHistory.pop();
+        const prevPage = prev.page;
+        navigateToPage(prevPage, prev.data);
+    } else {
+        navigateToDefaultPage();
+    }
+}
+
+function navigateToPage(page, data) {
     currentPage = page;
     currentPageData = data;
-
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const pageEl = document.getElementById('page-' + page);
     if (pageEl) pageEl.classList.add('active');
-
+    const homePage = document.getElementById('page-home');
+    if (homePage) homePage.classList.toggle('active', page === 'home');
     window.scrollTo(0, 0);
-
     switch(page) {
         case 'home': loadHomePage(); break;
         case 'dashboard': loadDashboard(); break;
         case 'services': loadServices(); break;
         case 'serviceDetail': loadServiceDetail(data); break;
+        case 'providerDetail': navigate('providers'); break;
         case 'providers': loadProviders(); break;
         case 'myAppointments': loadMyAppointments(); break;
         case 'notifications': loadNotifications(); break;
@@ -197,42 +210,7 @@ function navigate(page, data) {
         case 'adminDashboard': loadAdminDashboard(); break;
         case 'providerDashboard': loadProviderDashboard(); break;
         case 'reports': loadReports(); break;
-    }
-}
-
-function goBack() {
-    if (navigationHistory.length > 0) {
-        const prev = navigationHistory.pop();
-        const prevPage = prev.page;
-        const prevData = prev.data;
-        currentPage = prevPage;
-        currentPageData = prevData;
-
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        const pageEl = document.getElementById('page-' + prevPage);
-        if (pageEl) pageEl.classList.add('active');
-        const homePage = document.getElementById('page-home');
-        if (homePage) homePage.classList.toggle('active', prevPage === 'home');
-        window.scrollTo(0, 0);
-
-        switch(prevPage) {
-            case 'home': loadHomePage(); break;
-            case 'dashboard': loadDashboard(); break;
-            case 'services': loadServices(); break;
-            case 'serviceDetail': loadServiceDetail(prevData); break;
-            case 'providers': loadProviders(); break;
-            case 'myAppointments': loadMyAppointments(); break;
-            case 'notifications': loadNotifications(); break;
-            case 'profile': loadProfile(); break;
-            case 'coupons': loadUserCoupons(); break;
-            case 'myApplication': loadMyApplication(); break;
-            case 'adminDashboard': loadAdminDashboard(); break;
-            case 'providerDashboard': loadProviderDashboard(); break;
-            default: navigateToDefaultPage(); break;
-        }
-    } else {
-        // 登录后兜底回到默认页面，不回到公共首页
-        navigateToDefaultPage();
+        default: navigateToDefaultPage(); break;
     }
 }
 
