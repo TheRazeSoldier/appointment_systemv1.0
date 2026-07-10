@@ -1942,8 +1942,8 @@ function claimCoupon(couponId) {
 }
 
 function useUserCoupon(userCouponId) {
-    // Find the coupon data from the rendered page
     const overlay = document.createElement('div');
+    overlay.id = 'couponModalOverlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px;min-width:400px;max-width:500px;"><div class="loading">加载中</div></div>';
     document.body.appendChild(overlay);
@@ -1960,7 +1960,7 @@ function useUserCoupon(userCouponId) {
             overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
                     '<h3 style="margin:0;">使用优惠券</h3>' +
-                    '<button onclick="this.closest(\'div[style]\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>' +
+                    '<button onclick="document.getElementById(\'couponModalOverlay\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>' +
                 '</div>' +
                 '<div style="padding:16px;background:var(--light-gray);border-radius:8px;margin-bottom:16px;">' +
                     '<div style="font-size:1.3rem;font-weight:700;color:var(--orange);">' +
@@ -1981,7 +1981,7 @@ function useUserCoupon(userCouponId) {
 }
 
 function confirmUseCoupon(userCouponId, serviceId) {
-    const overlay = document.querySelector('div[style*="z-index:9999"]');
+    const overlay = document.getElementById('couponModalOverlay');
     if (overlay) overlay.remove();
     navigate('serviceDetail', serviceId);
 }
