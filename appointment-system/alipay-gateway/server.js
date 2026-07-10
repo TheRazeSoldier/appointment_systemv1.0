@@ -23,7 +23,8 @@ if (!MOCK) {
     privateKey: ALIPAY_PRIVATE_KEY,
     alipayPublicKey: ALIPAY_PUBLIC_KEY,
     gateway: ALIPAY_GATEWAY,
-    signType: 'RSA2'
+    signType: 'RSA2',
+    keyType: 'PKCS8'
   });
 } else {
   console.log('[MOCK] Running in mock mode -- no real Alipay credentials needed');
@@ -41,21 +42,45 @@ app.post('/gateway/pay', (req, res) => {
       return res.json({ paymentHtml, out_trade_no, mock: true });
     }
 
-    const paymentHtml = alipaySdk.pageExecute('alipay.trade.page.pay', 'POST', {
+    const formData = {
       returnUrl: return_url,
       notifyUrl: notify_url,
       bizContent: {
         out_trade_no,
-        total_amount,
-        subject,
+        total_amount: String(total_amount),
+        subject: 'test',
         product_code: 'FAST_INSTANT_TRADE_PAY'
       }
-    });
-
-    res.json({ paymentHtml, out_trade_no });
+    };
+    try {
+      const paymentHtml = alipaySdk.pageExecute('alipay.trade.page.pay', 'POST', formData);
+      res.json({ paymentHtml, out_trade_no });
+    } catch (e) {
+      res.status(500).json({ error: e.message || 'SDK error' });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message || 'Failed to create Alipay form' });
   }
+  });
+
+  app.post('/gateway/direct-pay', async (req, res) => {
+    try {
+      const { out_trade_no, total_amount, subject } = req.body;
+      const result = await alipaySdk.exec('alipay.trade.page.pay', {
+        returnUrl: req.body.return_url,
+        notifyUrl: req.body.notify_url,
+        bizContent: {
+          out_trade_no,
+          total_amount: String(total_amount),
+          subject: subject || 'payment',
+          product_code: 'FAST_INSTANT_TRADE_PAY'
+        }
+      });
+      res.json(result);
+    } catch (e) {
+      console.error('[DirectPay]', e);
+      res.status(500).json({ error: e.message || 'Direct pay failed', detail: e.response?.data ? String(e.response.data).substring(0,500) : 'no detail', code: e.code });
+    }
 });
 
 app.post('/gateway/query', async (req, res) => {

@@ -4,6 +4,8 @@
 #include "../services/DatabaseService.h"
 #include "../middleware/AuthMiddleware.h"
 #include <ctime>
+#include <sstream>
+#include <iomanip>
 
 using json = nlohmann::json;
 
@@ -323,19 +325,28 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
         
         auto service = db.getServiceById(appt.service_id);
         
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << service.price;
+        
         httplib::Client cli("127.0.0.1", 3000);
         auto gwRes = cli.Post("/gateway/pay",
             {{"Content-Type", "application/json"}},
             json{{"out_trade_no", std::to_string(apptId) + "_" + std::to_string(time(nullptr))},
                  {"subject", service.name},
-                 {"total_amount", std::to_string(service.price)},
+                 {"total_amount", oss.str()},
                  {"return_url", "http://localhost:8081/api/payments/return"},
                  {"notify_url", "http://localhost:8081/api/payments/notify"}}.dump(),
             "application/json");
         
         if (gwRes && gwRes->status == 200) {
             auto body = json::parse(gwRes->body);
-            res.set_content(body.dump(), "application/json");
+            if (body.contains("mock") && body["mock"] == true) {
+                std::string tradeNo = std::to_string(apptId) + "_" + std::to_string(time(nullptr));
+                db.updatePaymentStatus(apptId, "paid", tradeNo);
+                res.set_content(json{{"mock", true}, {"message", "支付成功"}}.dump(), "application/json");
+            } else {
+                res.set_content(body.dump(), "application/json");
+            }
         } else {
             res.status = 500;
             res.set_content(json{{"error", "支付网关连接失败"}}.dump(), "application/json");
@@ -348,18 +359,21 @@ void AppointmentController::registerRoutes(httplib::Server& svr) {
         std::string tradeStatus = body.contains("trade_status") ? body["trade_status"] : "";
         
         if (tradeStatus == "TRADE_SUCCESS") {
-            int apptId = std::stoi(outTradeNo.substr(0, outTradeNo.find('_')));
-            DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
+            size_t pos = outTradeNo.find('_');
+            int apptId = pos != std::string::npos ? std::stoi(outTradeNo.substr(0, pos)) : 0;
+            if (apptId > 0) DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
         }
         res.set_content("success", "text/plain");
     });
 
-    svr.Post("/api/payments/return", [](const httplib::Request& req, httplib::Response& res) {
+    svr.Get("/api/payments/return", [](const httplib::Request& req, httplib::Response& res) {
         std::string outTradeNo = req.has_param("out_trade_no") ? req.get_param_value("out_trade_no") : "";
-        std::string tradeStatus = req.has_param("trade_status") ? req.get_param_value("trade_status") : "";
-        if (tradeStatus == "TRADE_SUCCESS" && !outTradeNo.empty()) {
-            int apptId = std::stoi(outTradeNo.substr(0, outTradeNo.find('_')));
-            DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
+        if (!outTradeNo.empty()) {
+            size_t pos = outTradeNo.find('_');
+            if (pos != std::string::npos) {
+                int apptId = std::stoi(outTradeNo.substr(0, pos));
+                DatabaseService::getInstance().updatePaymentStatus(apptId, "paid", outTradeNo);
+            }
         }
         res.set_redirect("http://localhost:8081/#myAppointments", 302);
     });

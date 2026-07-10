@@ -862,18 +862,26 @@ function cancelAppointment(id) {
 }
 
 function payAppointment(id) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:32px;text-align:center;max-width:400px;"><div class="loading">加载中</div></div>';
-    document.body.appendChild(overlay);
+    // Open window FIRST (synchronous, avoids popup blocker)
+    const payWin = window.open('', '_blank', 'width=800,height=600');
+    if (!payWin) { showToast('请允许弹出窗口', 'warning'); return; }
+    payWin.document.write('<html><body><div class="loading" style="text-align:center;padding:40px;font-size:1.2rem;">加载中...</div></body></html>');
     
     api('/api/payments/create', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }).then(({ status, data }) => {
-        if (status === 200 && data.paymentHtml) {
-            overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;">' + data.paymentHtml + '</div><button onclick="this.parentElement.remove()" style="position:fixed;top:20px;right:20px;background:#fff;border:none;font-size:2rem;cursor:pointer;width:40px;height:40px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10000;">&times;</button>';
+        if (status === 200 && data.mock) {
+            payWin.close();
+            showToast('支付成功！', 'success');
+            loadMyAppointments();
+        } else if (status === 200 && data.paymentHtml) {
+            payWin.document.write(data.paymentHtml);
+            payWin.document.close();
         } else {
-            overlay.remove();
+            payWin.close();
             showToast(data.error || '支付创建失败', 'error');
         }
+    }).catch(() => {
+        payWin.close();
+        showToast('网络错误', 'error');
     });
 }
 
