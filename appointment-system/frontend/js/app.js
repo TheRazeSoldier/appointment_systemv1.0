@@ -203,7 +203,6 @@ function navigate(page, data) {
 function goBack() {
     if (navigationHistory.length > 0) {
         const prev = navigationHistory.pop();
-        // Navigate without recording history to avoid loops
         const prevPage = prev.page;
         const prevData = prev.data;
         currentPage = prevPage;
@@ -229,6 +228,7 @@ function goBack() {
             case 'myApplication': loadMyApplication(); break;
             case 'adminDashboard': loadAdminDashboard(); break;
             case 'providerDashboard': loadProviderDashboard(); break;
+            default: navigateToDefaultPage(); break;
         }
     } else {
         // 登录后兜底回到默认页面，不回到公共首页
