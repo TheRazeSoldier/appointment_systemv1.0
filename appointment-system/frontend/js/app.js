@@ -876,8 +876,31 @@ function cancelAppointment(id) {
 }
 
 function reloadCurrentPage() {
-    if (currentPage === 'providerDashboard') loadProviderDashboard();
-    else loadMyAppointments();
+    if (currentPage === 'providerDashboard') {
+        api('/api/appointments/my').then(({ data: apptArr }) => {
+            const appointments = apptArr && apptArr.appointments ? apptArr.appointments : (Array.isArray(apptArr) ? apptArr : []);
+            const tab = document.getElementById('tab-appointments');
+            if (tab) {
+                tab.innerHTML = appointments.length > 0 ? appointments.map(a => `
+                    <div class="appointment-card">
+                        <div class="appointment-header">
+                            <span class="appointment-title">${escHtml(a.service_name)} - ${escHtml(a.user_name)}</span>
+                            <span class="status-badge status-${a.status}">${getStatusText(a.status)}</span>
+                        </div>
+                        <div class="appointment-info"><span>📅 ${a.appointment_date} ${a.appointment_time}</span><span>💰 ¥${a.service_price}</span></div>
+                        ${a.notes ? `<p style="color:var(--mid-gray);">备注: ${escHtml(a.notes)}</p>` : ''}
+                        <div class="appointment-actions">
+                            ${a.status === 'pending' ? `<button class="btn btn-primary btn-sm" style="background:var(--blue);" onclick="confirmAppointment(${a.id})">确认</button>` : ''}
+                            ${a.status === 'confirmed' ? `<button class="btn btn-primary btn-sm" style="background:var(--green);" onclick="completeAppointment(${a.id})">完成</button>` : ''}
+                            ${a.status !== 'cancelled' && a.status !== 'completed' ? `<button class="btn btn-primary btn-sm" style="background:#EF4444;" onclick="cancelAppointment(${a.id})">取消</button>` : ''}
+                        </div>
+                    </div>
+                `).join('') : '<div class="empty-state"><p>暂无预约</p></div>';
+            }
+        });
+    } else {
+        loadMyAppointments();
+    }
 }
 
 function payAppointment(id) {
