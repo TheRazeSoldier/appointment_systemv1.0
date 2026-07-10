@@ -281,6 +281,8 @@ function updateNavState() {
     const appLink = $('appLink');
     const providerFeatureCard = $('providerFeatureCard');
     const dashReportsCard = $('dashReportsCard');
+    const dropMyAppt = $('dropMyAppt');
+    const dropCoupons = $('dropCoupons');
     
     if (currentUser) {
         navActions.style.display = 'none';
@@ -295,6 +297,8 @@ function updateNavState() {
             if (navProviderLink) navProviderLink.style.display = 'none';
             if (serviceHallLink) serviceHallLink.style.display = '';
             if (appLink) appLink.style.display = 'none';
+            if (dropMyAppt) dropMyAppt.style.display = '';
+            if (dropCoupons) dropCoupons.style.display = '';
             if (providerFeatureCard) providerFeatureCard.style.display = 'none';
         } else if (currentUser.role === 'provider') {
             if (adminLink) adminLink.style.display = 'none';
@@ -303,6 +307,8 @@ function updateNavState() {
             const serviceHallLink = $('navServiceHall');
             if (serviceHallLink) serviceHallLink.style.display = 'none';
             if (appLink) appLink.style.display = 'none';
+            if (dropMyAppt) dropMyAppt.style.display = 'none';
+            if (dropCoupons) dropCoupons.style.display = 'none';
             if (providerFeatureCard) providerFeatureCard.style.display = 'flex';
             if (dashReportsCard) dashReportsCard.style.display = 'block';
         } else {
@@ -311,6 +317,8 @@ function updateNavState() {
             if (navProviderLink) navProviderLink.style.display = 'none';
             if (serviceHallLink) serviceHallLink.style.display = '';
             if (appLink) appLink.style.display = 'block';
+            if (dropMyAppt) dropMyAppt.style.display = '';
+            if (dropCoupons) dropCoupons.style.display = '';
             if (providerFeatureCard) providerFeatureCard.style.display = 'none';
             if (dashReportsCard) dashReportsCard.style.display = 'none';
         }
