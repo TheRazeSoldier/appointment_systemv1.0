@@ -93,6 +93,41 @@ void CouponController::registerRoutes(httplib::Server& svr) {
         res.set_content(result.dump(), "application/json");
     });
 
+    svr.Get("/api/coupons/available-all", [](const httplib::Request& req, httplib::Response& res) {
+        auto& db = DatabaseService::getInstance();
+        auto providers = db.getAllProviders();
+        
+        json result = json::array();
+        for (const auto& p : providers) {
+            auto coupons = db.getAvailableCoupons(p.id);
+            if (!coupons.empty()) {
+                json couponArray = json::array();
+                for (const auto& c : coupons) {
+                    couponArray.push_back({
+                        {"id", c.id},
+                        {"name", c.name},
+                        {"description", c.description},
+                        {"coupon_type", c.coupon_type},
+                        {"discount_amount", c.discount_amount},
+                        {"discount_percent", c.discount_percent},
+                        {"min_amount", c.min_amount},
+                        {"start_time", c.start_time},
+                        {"end_time", c.end_time},
+                        {"total_count", c.total_count},
+                        {"used_count", c.used_count}
+                    });
+                }
+                result.push_back({
+                    {"provider_id", p.id},
+                    {"provider_name", p.name},
+                    {"provider_category", p.category},
+                    {"coupons", couponArray}
+                });
+            }
+        }
+        res.set_content(json{{"providers", result}}.dump(), "application/json");
+    });
+
     svr.Post(R"(/api/coupons/(\d+)/claim)", [](const httplib::Request& req, httplib::Response& res) {
         if (req.matches.size() < 2) { res.status = 404; return; }
         AuthUser authUser;

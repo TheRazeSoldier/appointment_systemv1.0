@@ -455,31 +455,34 @@ function loadPromoServices() {
     if (!container) return;
     container.innerHTML = '<div class="loading">加载中</div>';
 
-    api('/api/recommend/promos').then(({ data }) => {
-        if (data.services && data.services.length > 0) {
-            container.innerHTML = data.services.slice(0, 6).map(s => `
-                <div class="promo-card reveal" onclick="navigate('serviceDetail', ${s.id})">
-                    <div class="promo-card-image ${getCategoryClass(s.category)}">
-                        <span class="promo-tag">${s.discount}% OFF</span>
-                        <span class="icon-text">${getCategoryIcon(s.category)}</span>
-                    </div>
+    api('/api/coupons/available-all').then(({ data }) => {
+        if (data.providers && data.providers.length > 0) {
+            container.innerHTML = data.providers.map(p => `
+                <div class="promo-card reveal" style="cursor:default;">
                     <div class="promo-card-body">
-                        <h3>${escHtml(s.name)}</h3>
-                        <p class="promo-provider">${escHtml(s.provider_name || '')}</p>
-                        <p class="promo-desc">${escHtml(s.description)}</p>
+                        <h3 style="font-size:1rem;">${escHtml(p.provider_name)}</h3>
+                        <span class="profile-role">${escHtml(p.provider_category)}</span>
                     </div>
-                    <div class="promo-card-footer">
-                        <div class="promo-price">
-                            <span class="current">${s.price > 0 ? '¥' + s.price.toFixed(2) : '免费'}</span>
-                            ${s.originalPrice > 0 && s.originalPrice != s.price ? `<span class="original">¥${s.originalPrice.toFixed(2)}</span>` : ''}
-                        </div>
-                        <span class="promo-discount">-${s.discount}%</span>
+                    <div style="padding:0 16px 16px;">
+                        ${p.coupons.map(c => `
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--light-gray);">
+                                <div>
+                                    <div style="font-weight:600;font-size:0.9rem;">
+                                        ${c.coupon_type === 'fixed' ? '¥' + c.discount_amount : c.discount_percent + '%'} 
+                                        ${c.coupon_type === 'fixed' ? '满减券' : '折扣券'}
+                                    </div>
+                                    <div style="font-size:0.8rem;color:var(--mid-gray);">${escHtml(c.name)}${c.min_amount > 0 ? ' · 满¥' + c.min_amount + '可用' : ''}</div>
+                                    <div style="font-size:0.75rem;color:var(--mid-gray);">剩余 ${c.total_count - c.used_count} 张</div>
+                                </div>
+                                <button class="btn btn-primary btn-sm" onclick="claimCoupon(${c.id})" style="font-size:0.8rem;padding:4px 12px;">领取</button>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `).join('');
             initScrollReveal();
         } else {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏷</div><h3>暂无优惠服务</h3></div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏷</div><h3>暂无优惠券</h3><p>暂无商家发布优惠券</p></div>';
         }
     });
 }
