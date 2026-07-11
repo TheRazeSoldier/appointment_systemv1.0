@@ -920,26 +920,30 @@ function reloadCurrentPage() {
 }
 
 function payAppointment(id) {
-    // Open window FIRST (synchronous, avoids popup blocker)
     const payWin = window.open('', '_blank', 'width=800,height=600');
-    if (!payWin) { showToast('请允许弹出窗口', 'warning'); return; }
-    payWin.document.write('<html><body><div class="loading" style="text-align:center;padding:40px;font-size:1.2rem;">加载中...</div></body></html>');
     
     api('/api/payments/create', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }).then(({ status, data }) => {
-        if (status === 200 && data.paymentHtml) {
-            payWin.document.write(data.paymentHtml);
-            payWin.document.close();
-            if (data.mock) { showToast('支付成功！', 'success'); loadMyAppointments(); }
-        } else if (status === 200 && data.mock) {
-            payWin.close();
+        if (status === 200 && data.mock) {
             showToast('支付成功！', 'success');
             loadMyAppointments();
+            if (payWin && data.paymentHtml) {
+                try { payWin.document.write(data.paymentHtml); payWin.document.close(); } catch(e) {}
+            } else if (payWin) {
+                try { payWin.close(); } catch(e) {}
+            }
+        } else if (status === 200 && data.paymentHtml) {
+            if (payWin) {
+                payWin.document.write(data.paymentHtml);
+                payWin.document.close();
+            } else {
+                showToast('请允许弹出窗口查看支付页面', 'warning');
+            }
         } else {
-            payWin.close();
+            if (payWin) try { payWin.close(); } catch(e) {}
             showToast(data.error || '支付创建失败', 'error');
         }
     }).catch(() => {
-        payWin.close();
+        if (payWin) try { payWin.close(); } catch(e) {}
         showToast('网络错误', 'error');
     });
 }
