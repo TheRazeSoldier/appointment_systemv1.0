@@ -947,14 +947,6 @@ function payAppointment(id) {
                 document.body.appendChild(f);
                 f.submit();
             }
-                const payWin = window.open('', '_blank', 'width=800,height=600');
-                if (payWin) {
-                    payWin.document.write(data.paymentHtml);
-                    payWin.document.close();
-                } else {
-                    showToast('请允许弹出窗口', 'warning');
-                }
-            }
         } else {
             showToast(data.error || '支付创建失败', 'error');
         }
