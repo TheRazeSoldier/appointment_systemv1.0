@@ -68,10 +68,6 @@ int main() {
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        std::string ct = res.get_header_value("Content-Type");
-        if (ct.find("text/html") == 0 || ct.find("text/css") == 0 || ct.find("application/javascript") == 0 || ct.find("text/javascript") == 0) {
-            if (ct.find("charset") == std::string::npos) res.set_header("Content-Type", ct + "; charset=utf-8");
-        }
     });
 
     std::cout << "===================================" << std::endl;
