@@ -931,11 +931,21 @@ function payAppointment(id) {
             if (payWin) {
                 payWin.document.write(data.paymentHtml);
                 payWin.document.close();
-            } else {
+            } else if (data.mock) {
                 const overlay = document.createElement('div');
                 overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;overflow:auto;';
-                overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;margin:20px auto;">' + data.paymentHtml + '<button onclick="this.parentElement.parentElement.remove()" style="position:fixed;top:10px;right:10px;background:#fff;border:none;font-size:1.5rem;width:36px;height:36px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10000;">&times;</button></div>';
+                overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;margin:20px auto;text-align:center;">' + data.paymentHtml + '<button onclick="this.parentElement.parentElement.remove()" style="position:fixed;top:10px;right:10px;background:#fff;border:none;font-size:1.5rem;width:36px;height:36px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10000;">&times;</button></div>';
                 document.body.appendChild(overlay);
+            } else {
+                const f = document.createElement('form');
+                f.method = 'POST';
+                const am = data.paymentHtml.match(/action="([^"]+)"/);
+                if (am) f.action = am[1];
+                const bz = data.paymentHtml.match(/name="biz_content" value="([^"]*)"/);
+                if (bz) { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'biz_content'; i.value = bz[1]; f.appendChild(i); }
+                f.style.display = 'none';
+                document.body.appendChild(f);
+                f.submit();
             }
                 const payWin = window.open('', '_blank', 'width=800,height=600');
                 if (payWin) {
