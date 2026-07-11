@@ -920,30 +920,31 @@ function reloadCurrentPage() {
 }
 
 function payAppointment(id) {
-    const payWin = window.open('', '_blank', 'width=800,height=600');
+    const isMobile = window.innerWidth < 768;
     
     api('/api/payments/create', { method: 'POST', body: JSON.stringify({ appointment_id: id }) }).then(({ status, data }) => {
         if (status === 200 && data.mock) {
             showToast('支付成功！', 'success');
             loadMyAppointments();
-            if (payWin && data.paymentHtml) {
-                try { payWin.document.write(data.paymentHtml); payWin.document.close(); } catch(e) {}
-            } else if (payWin) {
-                try { payWin.close(); } catch(e) {}
-            }
         } else if (status === 200 && data.paymentHtml) {
-            if (payWin) {
-                payWin.document.write(data.paymentHtml);
-                payWin.document.close();
+            if (isMobile) {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;overflow:auto;';
+                overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;margin:auto;position:relative;">' + data.paymentHtml.replace(/<script>.*?<\/script>/g, '') + '<button onclick="this.parentElement.parentElement.remove()" style="position:fixed;top:10px;right:10px;background:#fff;border:none;font-size:1.5rem;width:36px;height:36px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.2);z-index:10000;">&times;</button></div>';
+                document.body.appendChild(overlay);
             } else {
-                showToast('请允许弹出窗口查看支付页面', 'warning');
+                const payWin = window.open('', '_blank', 'width=800,height=600');
+                if (payWin) {
+                    payWin.document.write(data.paymentHtml);
+                    payWin.document.close();
+                } else {
+                    showToast('请允许弹出窗口', 'warning');
+                }
             }
         } else {
-            if (payWin) try { payWin.close(); } catch(e) {}
             showToast(data.error || '支付创建失败', 'error');
         }
     }).catch(() => {
-        if (payWin) try { payWin.close(); } catch(e) {}
         showToast('网络错误', 'error');
     });
 }
